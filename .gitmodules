@@ -1,0 +1,6 @@
+[submodule "Submodules/Loadzup"]
+	path = Submodules/Loadzup
+	url = ../Loadzup.git
+[submodule "Submodules/Sequencit"]
+	path = Submodules/Sequencit
+	url = ../Sequencit.git
