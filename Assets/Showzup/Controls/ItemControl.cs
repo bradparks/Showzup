@@ -44,6 +44,7 @@ namespace Silphid.Showzup
                 .Do(view =>
                 {
                     ReplaceView(Container, view);
+                    view.IsActive = true;
                     _view.Value = view;
                 });
         }

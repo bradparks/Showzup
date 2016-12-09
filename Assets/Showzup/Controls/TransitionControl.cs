@@ -58,12 +58,10 @@ namespace Silphid.Showzup
 
         #region Implementation
 
-        protected IObservable<IView> LoadView(object input, Options options)
-        {
-            return ViewLoader
+        protected IObservable<IView> LoadView(object input, Options options) =>
+            ViewLoader
                 .Load(input, options.WithExtraVariants(Variants))
                 .Do(OnViewReady);
-        }
 
         protected void OnViewReady(IView view)
         {
@@ -102,15 +100,18 @@ namespace Silphid.Showzup
             _targetContainer = _sourceContainer;
             _sourceContainer = temp;
 
-            _sourceContainer.SetActive(true);
-            _targetContainer.SetActive(true);
-
             _currentTransition.Prepare(_sourceContainer, _targetContainer, direction);
             ReplaceView(_targetContainer, targetView);
+
+            _sourceContainer.SetActive(true);
+            _targetContainer.SetActive(true);
+            targetView.IsActive = true;
         }
 
         protected virtual void CompleteTransition()
         {
+            if (_sourceView != null)
+                _sourceView.IsActive = false;
             _view.Value = _targetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);

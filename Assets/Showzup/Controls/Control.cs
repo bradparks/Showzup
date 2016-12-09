@@ -43,7 +43,7 @@ namespace Silphid.Showzup
                 return;
 
             SetViewParent(container, view.GameObject);
-            view.GameObject.SetActive(true);
+            view.IsActive = true;
         }
     }
 }

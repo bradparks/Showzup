@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Silphid.Extensions;
 using Silphid.Loadzup;
 using UniRx;
@@ -63,7 +64,6 @@ namespace Silphid.Showzup
         private IObservable<IView> LoadByViewModel(object viewModel, Options options = null)
         {
             //Debug.Log($"#Views# Loading view for view model of type {viewModel}");
-
             // Resolve view mapping
             var mapping = _viewResolver.ResolveFromViewModelType(viewModel.GetType(), options);
             if (mapping == null)
@@ -74,7 +74,7 @@ namespace Silphid.Showzup
 
         private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel)
         {
-            //Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
+            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
 			return LoadPrefabView(mapping.ViewType, mapping.Uri)
                 .Do(view => InjectView(view, viewModel))
                 .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
@@ -83,7 +83,7 @@ namespace Silphid.Showzup
         private void InjectView(IView view, object viewModel)
         {
             view.ViewModel = viewModel;
-            //Debug.Log($"#Views# Initializing view {view} with view model {viewModel}");
+            Debug.Log($"#Views# Initializing view {view} with view model {viewModel}");
             _injectGameObject(view.GameObject);
         }
 
@@ -98,10 +98,16 @@ namespace Silphid.Showzup
 
             return _loader.Load<GameObject>(uri)
                 .Last()
+                .Do(DisableAllViews)
                 .Select(Object.Instantiate)
                 .DoOnError(ex => Debug.LogError(
                     $"Failed to load view {viewType} from {uri} with error:{Environment.NewLine}{ex}"))
-                .Select(view => GetViewFromPrefab(view, viewType));
+                .Select(x => GetViewFromPrefab(x, viewType));
+        }
+
+        private void DisableAllViews(GameObject obj)
+        {
+            obj.GetComponents<IView>().ForEach(x => x.IsActive = false);
         }
 
         private static IView GetViewFromPrefab(GameObject gameObject, Type viewType)

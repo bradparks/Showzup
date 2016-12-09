@@ -15,6 +15,16 @@ namespace Silphid.Showzup
 
         private object _viewModel;
 
+        public bool IsActive
+        {
+            get { return enabled && gameObject.activeSelf; }
+            set
+            {
+                gameObject.SetActive(value);
+                enabled = value;
+            }
+        }
+
         object IView.ViewModel
         {
             get
@@ -62,15 +72,15 @@ namespace Silphid.Showzup
                 .AutoDetach()
             ?? Observable.ReturnUnit();
 
-        protected void Bind(Image image, Uri uri, Loadzup.Options options = null)
+        protected void Bind(Image image, Uri uri)
         {
             if (image != null)
-                BindAsync(image, uri, options)
+                BindAsync(image, uri)
                     .Subscribe()
                     .AddTo(this);
         }
 
-        protected IObservable<Unit> BindAsync(Image image, Uri uri, Loadzup.Options options = null)
+        protected IObservable<Unit> BindAsync(Image image, Uri uri)
         {
             if (image == null)
                 return Observable.ReturnUnit();
@@ -79,7 +89,7 @@ namespace Silphid.Showzup
             image.sprite = null;
 
             return Loader
-                .Load<Sprite>(uri, options)
+                .Load<Sprite>(uri)
 //                .Delay(TimeSpan.FromMilliseconds(UnityEngine.Random.Range(100, 5000)))
                 .Do(x => image.sprite = x)
                 .AutoDetach()
