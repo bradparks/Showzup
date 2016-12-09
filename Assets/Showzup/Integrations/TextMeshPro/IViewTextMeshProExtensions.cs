@@ -1,4 +1,6 @@
-﻿using TMPro;
+﻿#if TEXT_MESH_PRO
+
+using TMPro;
 
 namespace Silphid.Showzup.TextMeshPro
 {
@@ -11,3 +13,5 @@ namespace Silphid.Showzup.TextMeshPro
         }
     }
 }
+
+#endif

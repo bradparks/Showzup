@@ -4,3 +4,6 @@
 [submodule "Submodules/Sequencit"]
 	path = Submodules/Sequencit
 	url = ../Sequencit.git
+[submodule "Submodules/LINQtoGameObject"]
+	path = Submodules/LINQtoGameObject
+	url = ../../neuecc/LINQ-to-GameObject-for-Unity.git
