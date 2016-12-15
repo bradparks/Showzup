@@ -74,8 +74,8 @@ namespace Silphid.Showzup
 
         private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel)
         {
-            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
-			return LoadPrefabView(mapping.ViewType, mapping.Uri)
+//            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
+            return LoadPrefabView(mapping.ViewType, mapping.Uri)
                 .Do(view => InjectView(view, viewModel))
                 .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
         }
@@ -83,7 +83,7 @@ namespace Silphid.Showzup
         private void InjectView(IView view, object viewModel)
         {
             view.ViewModel = viewModel;
-            Debug.Log($"#Views# Initializing view {view} with view model {viewModel}");
+//            Debug.Log($"#Views# Initializing view {view} with view model {viewModel}");
             _injectGameObject(view.GameObject);
         }
 

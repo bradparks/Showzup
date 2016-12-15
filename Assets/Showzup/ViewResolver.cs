@@ -80,11 +80,11 @@ namespace Silphid.Showzup
             var globalVariants = _globalVariantProvider?.Variants ?? Enumerable.Empty<string>();
             var variants = options.GetVariants().Concat(globalVariants).ToList();
 
-            //Debug.Log($"#Views# Resolving view for {type} and variants {variants.ToDelimitedString(";")}");
+//            Debug.Log($"#Views# Resolving view for {type} and variants {variants.ToDelimitedString(";")}");
 
             var candidates = (
                     from mapping in _mappings
-                    let variantScore = GetVariantScore(variants, mapping.Variants.ToList())
+                    let variantScore = GetVariantScore(mapping.ViewType.Name, variants.ToList(), mapping.Variants.ToList())
                     let viewModelScore = getTypeSpecificity(mapping)
                     where viewModelScore != ZeroScore
                     orderby variantScore descending, viewModelScore descending
@@ -92,20 +92,28 @@ namespace Silphid.Showzup
 				.ToList();
 
             var resolved = candidates.FirstOrDefault();
-            //Debug.Log($"#Views# Resolved: {resolved})");
+//            Debug.Log($"#Views# Resolved: {resolved}");
 
-            //if (candidates.Count > 1)
-            //    Debug.Log($"#Views# Other candidates:{Environment.NewLine}" +
-            //              $"{candidates.Skip(1).ToDelimitedString(Environment.NewLine)}");
+//            if (candidates.Count > 1)
+//                Debug.Log($"#Views# Other candidates:{Environment.NewLine}" +
+//                          $"{candidates.Skip(1).ToDelimitedString(Environment.NewLine)}");
 
             return resolved.Mapping;
         }
 
-        private int GetVariantScore(IEnumerable<string> requestedVariants, IList<string> candidateVariants) =>
-			requestedVariants.Count(candidateVariants.Contains) * HighScore +
-			(candidateVariants.Contains(DefaultCategory) ? MediumScore : ZeroScore);
+        private static int GetVariantScore(string viewTypeName, List<string> requestedVariants, List<string> candidateVariants)
+        {
+            var requiredVariants = requestedVariants.Where(x => x.EndsWith("!")).ToList();
+            var matchedRequiredCount = requiredVariants.Count(candidateVariants.Contains);
+//            Debug.Log($"#Views# {viewTypeName} Required variants: {requiredVariants.Count}  Matched required: {matchedRequiredCount}");
+            if (matchedRequiredCount < requiredVariants.Count)
+                return ZeroScore;
 
-        private int GetTypeScore(Type requestedType, Type candidateType)
+            return requestedVariants.Count(candidateVariants.Contains) * HighScore +
+                   (candidateVariants.Contains(DefaultCategory) ? MediumScore : ZeroScore);
+        }
+
+        private static int GetTypeScore(Type requestedType, Type candidateType)
         {
             var score = HighScore;
             var type = candidateType;
