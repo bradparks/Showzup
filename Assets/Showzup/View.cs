@@ -80,7 +80,7 @@ namespace Silphid.Showzup
                     .AddTo(this);
         }
 
-        protected IObservable<Unit> BindAsync(Image image, Uri uri)
+        protected IObservable<Unit> BindAsync(Image image, Uri uri, Loadzup.Options options = null)
         {
             if (image == null)
                 return Observable.ReturnUnit();
@@ -89,8 +89,7 @@ namespace Silphid.Showzup
             image.sprite = null;
 
             return Loader
-                .Load<Sprite>(uri)
-//                .Delay(TimeSpan.FromMilliseconds(UnityEngine.Random.Range(100, 5000)))
+                .Load<Sprite>(uri, options)
                 .Do(x => image.sprite = x)
                 .AutoDetach()
                 .AsSingleUnitObservable();
