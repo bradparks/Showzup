@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Silphid.Extensions;
 using Silphid.Loadzup;
 using UniRx;
@@ -41,7 +40,7 @@ namespace Silphid.Showzup
                 var type = (Type) input;
                 if (!type.IsAssignableTo<IView>())
                     return Observable.Throw<IView>(
-                            new NotSupportedException($"#Views# Input type does not implement IView: {type}"));
+                        new NotSupportedException($"#Views# Input type does not implement IView: {type}"));
 
                 return LoadByViewType(type, options);
             }
@@ -67,7 +66,8 @@ namespace Silphid.Showzup
             // Resolve view mapping
             var mapping = _viewResolver.ResolveFromViewModelType(viewModel.GetType(), options);
             if (mapping == null)
-                throw new InvalidOperationException($"ViewModel type {viewModel.GetType().Name} not mapped to any valid view");
+                throw new InvalidOperationException(
+                    $"ViewModel type {viewModel.GetType().Name} not mapped to any valid view");
 
             return LoadInternal(mapping, viewModel);
         }
@@ -98,11 +98,29 @@ namespace Silphid.Showzup
 
             return _loader.Load<GameObject>(uri)
                 .Last()
+                .Select(InstantiatePrefabInstanceIfEditor)
                 .Do(DisableAllViews)
-                .Select(Object.Instantiate)
+                .Select(Instantiate)
                 .DoOnError(ex => Debug.LogError(
                     $"Failed to load view {viewType} from {uri} with error:{Environment.NewLine}{ex}"))
                 .Select(x => GetViewFromPrefab(x, viewType));
+        }
+
+        private GameObject InstantiatePrefabInstanceIfEditor(GameObject obj)
+        {
+#if UNITY_EDITOR
+            obj = Object.Instantiate(obj);
+#endif
+            return obj;
+        }
+
+        private GameObject Instantiate(GameObject prefab)
+        {
+            var instance = Object.Instantiate(prefab);
+#if UNITY_EDITOR
+            Object.Destroy(prefab);
+#endif
+            return instance;
         }
 
         private void DisableAllViews(GameObject obj)
@@ -110,7 +128,7 @@ namespace Silphid.Showzup
             obj.GetComponents<IView>().ForEach(x => x.IsActive = false);
         }
 
-        private static IView GetViewFromPrefab(GameObject gameObject, Type viewType)
+        private IView GetViewFromPrefab(GameObject gameObject, Type viewType)
         {
             var view = (IView) gameObject.GetComponent(viewType);
 
