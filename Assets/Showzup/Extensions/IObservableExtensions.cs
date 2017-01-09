@@ -14,11 +14,11 @@ namespace Silphid.Showzup
 
         #region IObservable<Nav>
 
-        public static IObservable<TView> From<TView>(this IObservable<Nav> This) =>
-            This.Where(x => x.Source is TView).Select(x => (TView) x.Source);
+        public static IObservable<ViewNav<TView>> From<TView>(this IObservable<Nav> This) where TView : IView =>
+            This.Where(x => x.Source is TView).Select(x => new ViewNav<TView>(x, (TView)x.Source));
 
-        public static IObservable<TView> To<TView>(this IObservable<Nav> This) =>
-            This.Where(x => x.Target is TView).Select(x => (TView) x.Target);
+        public static IObservable<ViewNav<TView>> To<TView>(this IObservable<Nav> This) where TView : IView =>
+            This.Where(x => x.Target is TView).Select(x => new ViewNav<TView>(x, (TView) x.Target));
 
         public static IObservable<Nav> Between<TSource, TTarget>(this IObservable<Nav> This) =>
             This.Where(x => x.Source is TSource && x.Target is TTarget);
