@@ -8,7 +8,13 @@ namespace Silphid.Showzup
 {
     public class ShiftTransition : CrossfadeTransition
     {
-        public Vector2 Offset = Vector2.right;
+        [SerializeField] private Vector2 _offset = Vector2.right;
+
+        public Vector2 Offset
+        {
+            get { return _offset; }
+            set { _offset = value; }
+        }
 
         public override void Prepare(GameObject sourceContainer, GameObject targetContainer, Direction direction)
         {
@@ -22,7 +28,8 @@ namespace Silphid.Showzup
             ((RectTransform) targetContainer.transform).anchoredPosition = offset;
         }
 
-        public override IObservable<Unit> Perform(GameObject sourceContainer, GameObject targetContainer, Direction direction, float duration)
+        public override IObservable<Unit> Perform(GameObject sourceContainer, GameObject targetContainer,
+            Direction direction, float duration)
         {
             return Parallel.Create(parallel =>
             {

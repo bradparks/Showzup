@@ -14,7 +14,6 @@ namespace Silphid.Showzup
         private GameObject _targetContainer;
         private IView _sourceView;
         private IView _targetView;
-        private Transition _currentTransition;
         private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
 
         #endregion
@@ -24,7 +23,6 @@ namespace Silphid.Showzup
         [Inject] internal IViewLoader ViewLoader { get; set; }
         [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
 
-        public float Duration = 0.4f;
         public GameObject Container1;
         public GameObject Container2;
         public Transition DefaultTransition;
@@ -50,8 +48,13 @@ namespace Silphid.Showzup
         public virtual IObservable<IView> Present(object input, Options options = null)
         {
             return LoadView(input, options)
-                .ContinueWith(view => PerformTransition(options)
-                    .ThenReturn(view));
+                .ContinueWith(view =>
+                {
+                    var transition = ResolveTransition();
+                    var duration = ResolveDuration(transition, options);
+                    return PerformTransition(transition, duration, options)
+                        .ThenReturn(view);
+                });
         }
 
         #endregion
@@ -70,26 +73,27 @@ namespace Silphid.Showzup
             _targetView = view;
         }
 
-        protected IObservable<Unit> PerformTransition(Options options)
-        {
-            // Resolve transition
-            _currentTransition = TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
+        protected Transition ResolveTransition() => TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
 
-            PrepareContainers(_targetView, options.GetDirection());
+        protected float ResolveDuration(Transition transition, Options options) => options?.Duration ?? transition.Duration;
+
+        protected IObservable<Unit> PerformTransition(Transition transition, float duration, Options options)
+        {
+            PrepareContainers(_targetView, transition, options.GetDirection());
 
             return Sequence.Create(seq =>
             {
                 (_sourceView as IShowable)?.Hide().In(seq);
 
-                _currentTransition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
-                    options?.Duration ?? Duration).In(seq);
+                transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
+                    duration).In(seq);
 
                 (_targetView as IShowable)?.Show().In(seq);
-                seq.AddAction(CompleteTransition);
+                seq.AddAction(() => CompleteTransition(transition));
             });
         }
 
-        private void PrepareContainers(IView targetView, Direction direction)
+        private void PrepareContainers(IView targetView, Transition transition, Direction direction)
         {
             // Lazily initialize containers
             _sourceContainer = _sourceContainer ?? Container1;
@@ -100,7 +104,7 @@ namespace Silphid.Showzup
             _targetContainer = _sourceContainer;
             _sourceContainer = temp;
 
-            _currentTransition.Prepare(_sourceContainer, _targetContainer, direction);
+            transition.Prepare(_sourceContainer, _targetContainer, direction);
             ReplaceView(_targetContainer, targetView);
 
             _sourceContainer.SetActive(true);
@@ -108,14 +112,14 @@ namespace Silphid.Showzup
             targetView.IsActive = true;
         }
 
-        protected virtual void CompleteTransition()
+        protected virtual void CompleteTransition(Transition transition)
         {
             if (_sourceView != null)
                 _sourceView.IsActive = false;
             _view.Value = _targetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);
-            _currentTransition.Complete(_sourceContainer, _targetContainer);
+            transition.Complete(_sourceContainer, _targetContainer);
         }
 
         #endregion

@@ -77,11 +77,14 @@ namespace Silphid.Showzup
                 .Do(_ => _isLoading.Value = false)
                 .ContinueWith(view =>
                 {
-                    var nav = StartNavigation(view);
+                    var transition = ResolveTransition();
+                    var duration = ResolveDuration(transition, options);
+
+                    var nav = StartNavigation(view, transition, duration);
 
                     return Observable
                         .WhenAll(
-                            PerformTransition(options),
+                            PerformTransition(transition, duration, options),
                             nav.Parallel)
                         .DoOnCompleted(() =>
                         {
@@ -137,12 +140,17 @@ namespace Silphid.Showzup
             AssertCanPresent();
 
             StartChange();
-            var nav = StartNavigation(view);
+
+            var options = new Options { Direction = Direction.Backward };
+            var transition = ResolveTransition();
+            var duration = ResolveDuration(transition, options);
+
+            var nav = StartNavigation(view, transition, duration);
             OnViewReady(view);
 
             return Observable
                 .WhenAll(
-                    PerformTransition(new Options {Direction = Direction.Backward}),
+                    PerformTransition(transition, duration, options),
                     nav.Parallel)
                 .DoOnCompleted(() =>
                 {
@@ -162,9 +170,9 @@ namespace Silphid.Showzup
             _isNavigating.Value = true;
         }
 
-        private Nav StartNavigation(IView targetView)
+        private Nav StartNavigation(IView targetView, Transition transition, float duration)
         {
-            var nav = new Nav(View.Value, targetView, new Parallel());
+            var nav = new Nav(View.Value, targetView, new Parallel(), transition, duration);
             _navigating.OnNext(nav);
             _view.Value = null;
             return nav;
