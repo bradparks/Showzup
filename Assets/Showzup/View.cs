@@ -85,9 +85,6 @@ namespace Silphid.Showzup
             if (image == null)
                 return Observable.ReturnUnit();
 
-            // Clear placeholder/previous image (if any) while real image is loading
-            image.sprite = null;
-
             return Loader
                 .Load<Sprite>(uri, options)
                 .Do(x => image.sprite = x)
