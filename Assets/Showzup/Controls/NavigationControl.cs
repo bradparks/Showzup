@@ -141,12 +141,12 @@ namespace Silphid.Showzup
 
             StartChange();
 
+            OnViewReady(view);
+
             var options = new Options { Direction = Direction.Backward };
             var transition = ResolveTransition();
             var duration = ResolveDuration(transition, options);
-
             var nav = StartNavigation(view, transition, duration);
-            OnViewReady(view);
 
             return Observable
                 .WhenAll(
