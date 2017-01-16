@@ -24,6 +24,8 @@ namespace Silphid.Showzup
 
         #endregion
 
+        public bool CanPopTopLevelView;
+
         #region Life-time
 
         [Inject]
@@ -51,7 +53,7 @@ namespace Silphid.Showzup
 
         public ReadOnlyReactiveProperty<bool> CanPop =>
             _canPop ?? (_canPop = History
-                .Select(x => x.Count >= 1)
+                .Select(x => x.Count > (CanPopTopLevelView ? 0 : 1))
                 .DistinctUntilChanged()
                 .CombineLatest(IsNavigating.Negate(), (x, y) => x && y)
                 .ToReadOnlyReactiveProperty());
