@@ -51,7 +51,7 @@ namespace Silphid.Showzup
 
         public ReadOnlyReactiveProperty<bool> CanPop =>
             _canPop ?? (_canPop = History
-                .Select(x => x.Count >= 2)
+                .Select(x => x.Count >= 1)
                 .DistinctUntilChanged()
                 .CombineLatest(IsNavigating.Negate(), (x, y) => x && y)
                 .ToReadOnlyReactiveProperty());
@@ -107,7 +107,10 @@ namespace Silphid.Showzup
         {
             AssertCanPop();
 
-            var view = History.Value[History.Value.Count - 2];
+            var view = History.Value.Count >= 2
+                ? History.Value[History.Value.Count - 2]
+                : null;
+
             //Debug.Log($"#Nav# Pop({view})");
             var history = History.Value.Take(History.Value.Count - 1).ToList();
 

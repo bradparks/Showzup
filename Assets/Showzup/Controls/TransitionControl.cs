@@ -109,7 +109,8 @@ namespace Silphid.Showzup
 
             _sourceContainer.SetActive(true);
             _targetContainer.SetActive(true);
-            targetView.IsActive = true;
+            if (targetView != null)
+                targetView.IsActive = true;
         }
 
         protected virtual void CompleteTransition(Transition transition)
