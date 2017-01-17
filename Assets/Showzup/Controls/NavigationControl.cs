@@ -227,6 +227,9 @@ namespace Silphid.Showzup
 
         private void DisposeView(IView view)
         {
+            if (view == null)
+                return;
+
             Destroy(view.GameObject);
             (view as IDisposable)?.Dispose();
         }
