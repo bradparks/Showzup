@@ -83,14 +83,28 @@ namespace Silphid.Showzup
 
             return Sequence.Create(seq =>
             {
-                (_sourceView as IShowable)?.Hide().In(seq);
+                HideView(_sourceView, seq);
 
                 transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
                     duration).In(seq);
 
-                (_targetView as IShowable)?.Show().In(seq);
+                ShowView(_targetView, seq);
                 seq.AddAction(() => CompleteTransition(transition));
             });
+        }
+
+        private void HideView(IView view, ISequenceable seq)
+        {
+            var showable = view as IShowable;
+            if (showable != null)
+                seq.Add(() => showable.Hide());
+        }
+
+        private void ShowView(IView view, ISequenceable seq)
+        {
+            var showable = view as IShowable;
+            if (showable != null)
+                seq.Add(() => showable.Show());
         }
 
         private void PrepareContainers(IView targetView, Transition transition, Direction direction)
