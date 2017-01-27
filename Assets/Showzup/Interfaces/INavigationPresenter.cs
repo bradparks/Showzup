@@ -11,8 +11,9 @@ namespace Silphid.Showzup
         ReadOnlyReactiveProperty<bool> CanPresent { get; }
         ReadOnlyReactiveProperty<bool> CanPop { get; }
         ReadOnlyReactiveProperty<IView> View { get; }
-        IObservable<Nav> Navigating { get; }
-        IObservable<Nav> Navigated { get; }
+        IObservable<Nav> PreNavigation { get; }
+        IObservable<Nav> Navigation { get; }
+        IObservable<Nav> PostNavigation { get; }
         ReactiveProperty<List<IView>> History { get; }
 
         [Pure] IObservable<IView> Pop();

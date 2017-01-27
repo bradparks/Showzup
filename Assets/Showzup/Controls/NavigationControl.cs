@@ -17,8 +17,9 @@ namespace Silphid.Showzup
         private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
         private readonly ReactiveProperty<bool> _isNavigating = new ReactiveProperty<bool>(false);
         private readonly ReactiveProperty<bool> _isLoading = new ReactiveProperty<bool>(false);
-        private readonly Subject<Nav> _navigating = new Subject<Nav>();
-        private readonly Subject<Nav> _navigated = new Subject<Nav>();
+        private readonly Subject<Nav> _preNavigation = new Subject<Nav>();
+        private readonly Subject<Nav> _navigation = new Subject<Nav>();
+        private readonly Subject<Nav> _postNavigation = new Subject<Nav>();
         private ReadOnlyReactiveProperty<bool> _canPush;
         private ReadOnlyReactiveProperty<bool> _canPop;
 
@@ -63,9 +64,9 @@ namespace Silphid.Showzup
         public ReactiveProperty<List<IView>> History { get; } =
             new ReactiveProperty<List<IView>>(new List<IView>());
 
-        public IObservable<Nav> Navigating => _navigating;
-        public IObservable<Nav> Navigated => _navigated;
-
+        public IObservable<Nav> PreNavigation => _preNavigation;
+        public IObservable<Nav> Navigation => _navigation;
+        public IObservable<Nav> PostNavigation => _postNavigation;
 
         public override IObservable<IView> Present(object input, Options options = null)
         {
@@ -75,6 +76,7 @@ namespace Silphid.Showzup
             StartChange();
 
             _isLoading.Value = true;
+
             return LoadView(input, options)
                 .Do(_ => _isLoading.Value = false)
                 .ContinueWith(view =>
@@ -82,17 +84,15 @@ namespace Silphid.Showzup
                     var transition = ResolveTransition();
                     var duration = ResolveDuration(transition, options);
 
-                    var nav = StartNavigation(view, transition, duration);
+                    var nav = CreateNav(view, transition, duration);
+                    var history = GetNewHistory(view, options.GetPushMode());
 
-                    return Observable
-                        .WhenAll(
-                            PerformTransition(transition, duration, options),
-                            nav.Parallel)
-                        .DoOnCompleted(() =>
+                    return Sequence
+                        .Create(seq =>
                         {
-                            History.Value = GetNewHistory(view, options.GetPushMode());
-                            CompleteNavigation(nav);
-                            CompleteChange();
+                            PerformPreNavigation(nav).In(seq);
+                            PerformNavigation(nav, transition, duration, options).In(seq);
+                            PerformPostNavigation(nav, history).In(seq);
                         })
                         .ThenReturn(view);
                 });
@@ -151,17 +151,15 @@ namespace Silphid.Showzup
             var options = new Options { Direction = Direction.Backward };
             var transition = ResolveTransition();
             var duration = ResolveDuration(transition, options);
-            var nav = StartNavigation(view, transition, duration);
 
-            return Observable
-                .WhenAll(
-                    PerformTransition(transition, duration, options),
-                    nav.Parallel)
-                .DoOnCompleted(() =>
+            var nav = CreateNav(view, transition, duration);
+
+            return Sequence
+                .Create(seq =>
                 {
-                    History.Value = history;
-                    CompleteNavigation(nav);
-                    CompleteChange();
+                    PerformPreNavigation(nav).In(seq);
+                    PerformNavigation(nav, transition, duration, options).In(seq);
+                    PerformPostNavigation(nav, history).In(seq);
                 })
                 .ThenReturn(view);
         }
@@ -175,25 +173,40 @@ namespace Silphid.Showzup
             _isNavigating.Value = true;
         }
 
-        private Nav StartNavigation(IView targetView, Transition transition, float duration)
-        {
-            var nav = new Nav(View.Value, targetView, new Parallel(), transition, duration);
-            _navigating.OnNext(nav);
-            _view.Value = null;
-            return nav;
-        }
+        private Nav CreateNav(IView targetView, Transition transition, float duration) =>
+            new Nav(View.Value, targetView, transition, duration);
 
-        private void CompleteNavigation(Nav nav)
-        {
-            _view.Value = nav.Target;
-            _navigated.OnNext(nav);
-        }
+        private IObservable<Unit> PerformPreNavigation(Nav nav) =>
+            Parallel.Create(parallel =>
+            {
+                _view.Value = null;
+                nav.Parallel = parallel;
+                _preNavigation.OnNext(nav);
+            });
 
-        private void CompleteChange()
-        {
-            _isNavigating.Value = false;
-            //Debug.Log("#Nav# Navigation complete");
-        }
+        private IObservable<Unit> PerformNavigation(Nav nav, Transition transition, float duration, Options options) =>
+            Parallel.Create(parallel =>
+            {
+                PerformTransition(transition, duration, options).In(parallel);
+                nav.Parallel = parallel;
+                _navigation.OnNext(nav);
+            });
+
+        private IObservable<Unit> PerformPostNavigation(Nav nav, List<IView> history) =>
+            Sequence.Create(seq =>
+            {
+                seq.AddParallel(parallel =>
+                {
+                    nav.Parallel = parallel;
+                    _postNavigation.OnNext(nav);
+                });
+                seq.AddAction(() =>
+                {
+                    _view.Value = nav.Target;
+                    History.Value = history;
+                    _isNavigating.Value = false;
+                });
+            });
 
         private void AssertCanPresent()
         {
