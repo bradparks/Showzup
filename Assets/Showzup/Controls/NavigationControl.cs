@@ -90,9 +90,9 @@ namespace Silphid.Showzup
                     return Sequence
                         .Create(seq =>
                         {
-                            PerformPreNavigation(nav).In(seq);
-                            PerformNavigation(nav, transition, duration, options).In(seq);
-                            PerformPostNavigation(nav, history).In(seq);
+                            seq.Add(() => PerformPreNavigation(nav));
+                            seq.Add(() => PerformNavigation(nav, transition, duration, options));
+                            seq.Add(() => PerformPostNavigation(nav, history));
                         })
                         .ThenReturn(view);
                 });
@@ -148,7 +148,7 @@ namespace Silphid.Showzup
 
             OnViewReady(view);
 
-            var options = new Options { Direction = Direction.Backward };
+            var options = new Options {Direction = Direction.Backward};
             var transition = ResolveTransition();
             var duration = ResolveDuration(transition, options);
 
@@ -157,9 +157,9 @@ namespace Silphid.Showzup
             return Sequence
                 .Create(seq =>
                 {
-                    PerformPreNavigation(nav).In(seq);
-                    PerformNavigation(nav, transition, duration, options).In(seq);
-                    PerformPostNavigation(nav, history).In(seq);
+                    seq.Add(() => PerformPreNavigation(nav));
+                    seq.Add(() => PerformNavigation(nav, transition, duration, options));
+                    seq.Add(() => PerformPostNavigation(nav, history));
                 })
                 .ThenReturn(view);
         }
