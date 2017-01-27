@@ -66,7 +66,6 @@ namespace Silphid.Showzup
         public IObservable<Nav> Navigating => _navigating;
         public IObservable<Nav> Navigated => _navigated;
 
-
         public override IObservable<IView> Present(object input, Options options = null)
         {
             Debug.Log($"#Nav# Present({input}, {options})");
@@ -86,7 +85,7 @@ namespace Silphid.Showzup
 
                     return Observable
                         .WhenAll(
-                            PerformTransition(transition, duration, options),
+                            PerformTransition(input, transition, duration, options),
                             nav.Parallel)
                         .DoOnCompleted(() =>
                         {
@@ -155,7 +154,8 @@ namespace Silphid.Showzup
 
             return Observable
                 .WhenAll(
-                    PerformTransition(transition, duration, options),
+                    // TODO: Keep original input in history and recover it here instead of null
+                    PerformTransition(null, transition, duration, options),
                     nav.Parallel)
                 .DoOnCompleted(() =>
                 {

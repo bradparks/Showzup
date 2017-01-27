@@ -1,4 +1,5 @@
-﻿using Silphid.Extensions;
+﻿using JetBrains.Annotations;
+using Silphid.Extensions;
 using Silphid.Sequencit;
 using UniRx;
 using UnityEngine;
@@ -6,7 +7,7 @@ using Zenject;
 
 namespace Silphid.Showzup
 {
-    public class TransitionControl : Control, IPresenter
+    public class TransitionControl : Control, IPhasedPresenter
     {
         #region Fields
 
@@ -15,6 +16,18 @@ namespace Silphid.Showzup
         private IView _sourceView;
         private IView _targetView;
         private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
+
+        private readonly ReactiveProperty<bool> _isPresenting = new ReactiveProperty<bool>();
+        private readonly ReactiveProperty<bool> _isLoading = new ReactiveProperty<bool>();
+        private readonly Subject<Phase> _prePresentationPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _deconstructionPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _loadPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _preTransitionPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _transitionPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _postTransitionPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _unloadPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _constructionPhaseSubject = new Subject<Phase>();
+        private readonly Subject<Phase> _postPresentationPhaseSubject = new Subject<Phase>();
 
         #endregion
 
@@ -30,7 +43,29 @@ namespace Silphid.Showzup
 
         #endregion
 
+        #region IPhasedPresenter members
+
+        public ReadOnlyReactiveProperty<bool> IsPresenting { get; }
+        public ReadOnlyReactiveProperty<bool> IsLoading { get; }
+        public IObservable<Phase> PrePresentationPhase => _prePresentationPhaseSubject;
+        public IObservable<Phase> DeconstructionPhase => _deconstructionPhaseSubject;
+        public IObservable<Phase> LoadPhase => _loadPhaseSubject;
+        public IObservable<Phase> PreTransitionPhase => _preTransitionPhaseSubject;
+        public IObservable<Phase> TransitionPhase => _transitionPhaseSubject;
+        public IObservable<Phase> PostTransitionPhase => _postTransitionPhaseSubject;
+        public IObservable<Phase> UnloadPhase => _unloadPhaseSubject;
+        public IObservable<Phase> ConstructionPhase => _constructionPhaseSubject;
+        public IObservable<Phase> PostPresentationPhase => _postPresentationPhaseSubject;
+
+        #endregion
+
         #region Life-time
+
+        public TransitionControl()
+        {
+            IsPresenting = _isPresenting.ToReadOnlyReactiveProperty();
+            IsLoading = _isLoading.ToReadOnlyReactiveProperty();
+        }
 
         internal void Start()
         {
@@ -52,7 +87,7 @@ namespace Silphid.Showzup
                 {
                     var transition = ResolveTransition();
                     var duration = ResolveDuration(transition, options);
-                    return PerformTransition(transition, duration, options)
+                    return PerformTransition(input, transition, duration, options)
                         .ThenReturn(view);
                 });
         }
@@ -77,34 +112,49 @@ namespace Silphid.Showzup
 
         protected float ResolveDuration(Transition transition, Options options) => options?.Duration ?? transition.Duration;
 
-        protected IObservable<Unit> PerformTransition(Transition transition, float duration, Options options)
+        protected IObservable<Unit> PerformTransition(object input, Transition transition, float duration, Options options)
         {
-            PrepareContainers(_targetView, transition, options.GetDirection());
-
             return Sequence.Create(seq =>
             {
-                HideView(_sourceView, seq);
+                Phase(_prePresentationPhaseSubject, input, options, _sourceView, _targetView).In(seq);
 
+                Deconstruct(_sourceView, seq);
+
+                PrepareContainers(_targetView, transition, options.GetDirection());
                 transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
                     duration).In(seq);
 
-                ShowView(_targetView, seq);
+                Construct(_targetView, seq);
                 seq.AddAction(() => CompleteTransition(transition));
+
+                Phase(_postPresentationPhaseSubject, input, options, _sourceView, _targetView).In(seq);
             });
         }
 
-        private void HideView(IView view, ISequenceable seq)
+        [Pure]
+        private IObservable<Unit> Phase(Subject<Phase> subject, object input, Options options, IView source, IView target) =>
+            Parallel.Create(parallel =>
+                subject.OnNext(new Phase
+                {
+                    Input = input,
+                    Options = options,
+                    Source = source,
+                    Target = target,
+                    Parallel = parallel
+                }));
+
+        private void Deconstruct(IView view, ISequenceable seq)
         {
-            var showable = view as IShowable;
-            if (showable != null)
-                seq.Add(() => showable.Hide());
+            var deconstructable = view as IDeconstructable;
+            if (deconstructable != null)
+                seq.Add(() => deconstructable.Deconstruct());
         }
 
-        private void ShowView(IView view, ISequenceable seq)
+        private void Construct(IView view, ISequenceable seq)
         {
-            var showable = view as IShowable;
-            if (showable != null)
-                seq.Add(() => showable.Show());
+            var constructable = view as IConstructable;
+            if (constructable != null)
+                seq.Add(() => constructable.Construct());
         }
 
         private void PrepareContainers(IView targetView, Transition transition, Direction direction)
