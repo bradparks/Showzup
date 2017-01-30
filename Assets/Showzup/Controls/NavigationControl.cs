@@ -70,7 +70,7 @@ namespace Silphid.Showzup
 
         public override IObservable<IView> Present(object input, Options options = null)
         {
-            Debug.Log($"#Nav# Present({input}, {options})");
+           // Debug.Log($"#Nav# Present({input}, {options})");
             AssertCanPresent();
 
             StartChange();
