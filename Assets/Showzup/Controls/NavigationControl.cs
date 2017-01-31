@@ -85,7 +85,7 @@ namespace Silphid.Showzup
 
                     return Observable
                         .WhenAll(
-                            PerformTransition(input, transition, duration, options),
+                            OnTransition(input, transition, duration, options),
                             nav.Parallel)
                         .DoOnCompleted(() =>
                         {
@@ -155,7 +155,7 @@ namespace Silphid.Showzup
             return Observable
                 .WhenAll(
                     // TODO: Keep original input in history and recover it here instead of null
-                    PerformTransition(null, transition, duration, options),
+                    OnTransition(null, transition, duration, options),
                     nav.Parallel)
                 .DoOnCompleted(() =>
                 {

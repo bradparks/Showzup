@@ -6,15 +6,9 @@ namespace Silphid.Showzup
     {
         ReadOnlyReactiveProperty<bool> IsPresenting { get; }
         ReadOnlyReactiveProperty<bool> IsLoading { get; }
-
-        IObservable<Phase> PrePresentationPhase { get; }
-        IObservable<Phase> DeconstructionPhase { get; }
-        IObservable<Phase> LoadPhase { get; }
-        IObservable<Phase> PreTransitionPhase { get; }
-        IObservable<Phase> TransitionPhase { get; }
-        IObservable<Phase> PostTransitionPhase { get; }
-        IObservable<Phase> UnloadPhase { get; }
-        IObservable<Phase> ConstructionPhase { get; }
-        IObservable<Phase> PostPresentationPhase { get; }
+        IObservable<Present> PresentStarting { get; }
+        IObservable<Phase> PhaseStarting { get; }
+        IObservable<CompletedPhase> PhaseCompleted { get; }
+        IObservable<Present> PresentCompleted { get; }
     }
 }

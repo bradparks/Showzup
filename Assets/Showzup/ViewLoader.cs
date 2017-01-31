@@ -12,78 +12,46 @@ namespace Silphid.Showzup
     {
         [Inject] internal ILoader _loader;
 
-        private readonly IViewResolver _viewResolver;
         private readonly Action<GameObject> _injectGameObject;
 
-        public ViewLoader(IViewResolver viewResolver, Action<GameObject> injectGameObject)
+        public ViewLoader(Action<GameObject> injectGameObject)
         {
-            _viewResolver = viewResolver;
             _injectGameObject = injectGameObject;
         }
 
-        public IObservable<IView> Load(object input, Options options = null)
+        public IObservable<IView> Load(ViewInfo viewInfo)
         {
-            if (input == null)
-            {
-                Debug.Log("#Views# Returning null view for null content");
-                return Observable.Return<IView>(null);
-            }
+            if (viewInfo.View != null)
+                return Load(viewInfo.ViewModel, viewInfo.View);
 
-            if (input is IView)
-            {
-                Debug.Log("#Views# Returning content itself as view");
-                return Observable.Return((IView) input);
-            }
+            if (viewInfo.ViewType != null && viewInfo.Uri != null)
+                return Load(viewInfo.ViewModel, viewInfo.ViewType, viewInfo.Uri);
 
-            if (input is Type)
-            {
-                var type = (Type) input;
-                if (!type.IsAssignableTo<IView>())
-                    return Observable.Throw<IView>(
-                        new NotSupportedException($"#Views# Input type does not implement IView: {type}"));
-
-                return LoadByViewType(type, options);
-            }
-
-            return LoadByViewModel(input, options);
+            throw new InvalidOperationException("Must specify either view instance to load or view type and URI");
         }
 
-        private IObservable<IView> LoadByViewType(Type viewType, Options options = null)
+        private IObservable<IView> Load(object viewModel, IView view)
         {
-            //Debug.Log($"#Views# Loading view of type {viewType}");
-
-            // Resolve view mapping
-            var mapping = _viewResolver.ResolveFromViewType(viewType, options);
-            if (mapping == null)
-                throw new InvalidOperationException($"View type {viewType.Name} not mapped");
-
-            return LoadInternal(mapping, null);
+            return Observable.Return(view)
+                .Do(x => InjectView(x, viewModel))
+                .ContinueWith(x => LoadLoadable(x).ThenReturn(view));
         }
 
-        private IObservable<IView> LoadByViewModel(object viewModel, Options options = null)
+        private IObservable<IView> Load(object viewModel, Type viewType, Uri uri)
         {
-            //Debug.Log($"#Views# Loading view for view model of type {viewModel}");
-            // Resolve view mapping
-            var mapping = _viewResolver.ResolveFromViewModelType(viewModel.GetType(), options);
-            if (mapping == null)
-                throw new InvalidOperationException(
-                    $"ViewModel type {viewModel.GetType().Name} not mapped to any valid view");
-
-            return LoadInternal(mapping, viewModel);
-        }
-
-        private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel)
-        {
-//            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
-            return LoadPrefabView(mapping.ViewType, mapping.Uri)
+//            Debug.Log($"#Views# Loading view {viewInfo.ViewType} for view model {viewModel} using viewInfo {viewInfo}");
+            return LoadPrefabView(viewType, uri)
                 .Do(view => InjectView(view, viewModel))
                 .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
         }
 
         private void InjectView(IView view, object viewModel)
         {
-            view.ViewModel = viewModel;
 //            Debug.Log($"#Views# Initializing view {view} with view model {viewModel}");
+
+            if (viewModel != null)
+                view.ViewModel = viewModel;
+
             _injectGameObject(view.GameObject);
         }
 
