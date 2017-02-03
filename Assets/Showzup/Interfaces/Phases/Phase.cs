@@ -1,20 +1,33 @@
-﻿using Silphid.Sequencit;
+﻿using System;
+using Silphid.Sequencit;
 
 namespace Silphid.Showzup
 {
-    public struct Phase
+    public class Phase : IPhase
     {
-        public Presentation Presentation { get; }
-        public PhaseId Id { get; }
-        public float? Duration { get; }
-        public ISequenceable Parallel { get; }
+        protected readonly IPresentation _presentation;
 
-        public Phase(Presentation presentation, PhaseId id, float? duration, ISequenceable parallel)
+        public PhaseId Id { get; }
+        public ISequenceable Parallel { get; }
+        public float? Duration { get; }
+
+        public Phase(IPresentation presentation, PhaseId id, ISequenceable parallel, float? duration = null)
         {
-            Presentation = presentation;
+            _presentation = presentation;
             Id = id;
-            Duration = duration;
             Parallel = parallel;
+            Duration = duration;
         }
+
+        public object ViewModel => _presentation.ViewModel;
+        public IView SourceView => _presentation.SourceView;
+        public IView TargetView
+        {
+            get { return _presentation.TargetView; }
+            set { _presentation.TargetView = value; }
+        }
+        public Type SourceViewType => _presentation.SourceViewType;
+        public Type TargetViewType => _presentation.TargetViewType;
+        public Options Options => _presentation.Options;
     }
 }

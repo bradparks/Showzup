@@ -2,11 +2,22 @@
 
 namespace Silphid.Showzup
 {
-    public struct Presentation
+    public class Presentation : IPresentation
     {
-        public object ViewModel { get; set; }
-        public Type SourceViewType { get; set; }
-        public Type TargetViewType { get; set; }
-        public Options Options { get; set; }
+        public object ViewModel { get; }
+        public IView SourceView { get; }
+        public IView TargetView { get; set; }
+        public Type SourceViewType { get; }
+        public Type TargetViewType { get; }
+        public Options Options { get; }
+
+        public Presentation(object viewModel, IView sourceView, Type targetViewType, Options options)
+        {
+            ViewModel = viewModel;
+            SourceView = sourceView;
+            SourceViewType = sourceView?.GetType();
+            TargetViewType = targetViewType;
+            Options = options;
+        }
     }
 }

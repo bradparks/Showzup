@@ -1,18 +1,19 @@
 ﻿using System;
+using Silphid.Sequencit;
 using UniRx;
 
 namespace Silphid.Showzup
 {
     public class PhaseProvider : IPhaseProvider
     {
-        private readonly Func<PhaseId, Func<IObservable<Unit>>, Func<IObservable<Unit>>> _getCustomPhase;
+        private readonly Func<Func<Parallel, Phase>, Func<Phase, IObservable<Unit>>, Func<IObservable<Unit>>> _getCustomPhase;
 
         public PhaseProvider(
             Func<IObservable<Unit>> deconstructionPhase,
             Func<IObservable<Unit>> loadPhase,
             Func<IObservable<Unit>> transitionPhase,
             Func<IObservable<Unit>> constructionPhase,
-            Func<PhaseId, Func<IObservable<Unit>>, Func<IObservable<Unit>>> getCustomPhase)
+            Func<Func<Parallel, Phase>, Func<Phase, IObservable<Unit>>, Func<IObservable<Unit>>> getCustomPhase)
         {
             DeconstructionPhase = deconstructionPhase;
             LoadPhase = loadPhase;
@@ -26,7 +27,9 @@ namespace Silphid.Showzup
         public Func<IObservable<Unit>> TransitionPhase { get; }
         public Func<IObservable<Unit>> ConstructionPhase { get; }
 
-        public Func<IObservable<Unit>> GetCustomPhase(PhaseId phaseId, Func<IObservable<Unit>> phaseOperation = null) =>
-            _getCustomPhase(phaseId, phaseOperation);
+        public Func<IObservable<Unit>> GetCustomPhase(
+            Func<Parallel, Phase> createPhase,
+            Func<Phase, IObservable<Unit>> phaseOperation = null) =>
+            _getCustomPhase(createPhase, phaseOperation);
     }
 }

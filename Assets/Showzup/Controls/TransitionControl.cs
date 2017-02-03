@@ -27,10 +27,10 @@ namespace Silphid.Showzup
 
         #region IPhasedPresenter members
 
-        public IObservable<Presentation> PresentationStarting => PhasedPresenter.PresentationStarting;
-        public IObservable<Phase> PhaseStarting => PhasedPresenter.PhaseStarting;
+        public IObservable<IPresentation> PresentationStarting => PhasedPresenter.PresentationStarting;
+        public IObservable<IPhase> PhaseStarting => PhasedPresenter.PhaseStarting;
         public IObservable<CompletedPhase> PhaseCompleted => PhasedPresenter.PhaseCompleted;
-        public IObservable<Presentation> PresentationCompleted => PhasedPresenter.PresentationCompleted;
+        public IObservable<IPresentation> PresentationCompleted => PhasedPresenter.PresentationCompleted;
 
         #endregion
 
@@ -50,20 +50,20 @@ namespace Silphid.Showzup
         #region IPresenter members
 
         public virtual IObservable<IView> Present(object input, Options options = null) =>
-            PhasedPresenter.Present(input, _view, Variants, DefaultTransition, options, PerformTransition);
+            PhasedPresenter.Present(input, _view, Variants, DefaultTransition, options,
+                phase => PerformTransition((TransitionPhase) phase));
 
         #endregion
 
-        private IObservable<Unit> PerformTransition(IView sourceView, IView targetView, Transition transition,
-            float duration, Options options)
+        private IObservable<Unit> PerformTransition(TransitionPhase phase)
         {
-            PrepareContainers(transition, targetView, options.GetDirection());
-            return transition
-                .Perform(_sourceContainer, _targetContainer, options.GetDirection(), duration)
-                .DoOnCompleted(() => CompleteTransition(transition, sourceView, targetView));
+            PrepareContainers(phase);
+            return phase.Transition
+                .Perform(_sourceContainer, _targetContainer, phase.Options.GetDirection(), phase.Duration.Value)
+                .DoOnCompleted(() => CompleteTransition(phase));
         }
 
-        private void PrepareContainers(Transition transition, IView targetView, Direction direction)
+        private void PrepareContainers(TransitionPhase phase)
         {
             // Lazily initialize containers
             _sourceContainer = _sourceContainer ?? Container1;
@@ -74,23 +74,23 @@ namespace Silphid.Showzup
             _targetContainer = _sourceContainer;
             _sourceContainer = temp;
 
-            transition.Prepare(_sourceContainer, _targetContainer, direction);
-            ReplaceView(_targetContainer, targetView);
+            phase.Transition.Prepare(_sourceContainer, _targetContainer, phase.Options.GetDirection());
+            ReplaceView(_targetContainer, phase.TargetView);
 
             _sourceContainer.SetActive(true);
             _targetContainer.SetActive(true);
-            if (targetView != null)
-                targetView.IsActive = true;
+            if (phase.TargetView != null)
+                phase.TargetView.IsActive = true;
         }
 
-        protected virtual void CompleteTransition(Transition transition, IView sourceView, IView targetView)
+        protected virtual void CompleteTransition(TransitionPhase phase)
         {
-            if (sourceView != null)
-                sourceView.IsActive = false;
-            _view = targetView;
+            if (phase.SourceView != null)
+                phase.SourceView.IsActive = false;
+            _view = phase.TargetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);
-            transition.Complete(_sourceContainer, _targetContainer);
+            phase.Transition.Complete(_sourceContainer, _targetContainer);
         }
     }
 }

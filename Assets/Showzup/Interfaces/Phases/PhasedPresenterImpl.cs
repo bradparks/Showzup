@@ -12,10 +12,10 @@ namespace Silphid.Showzup
     {
         #region Fields
 
-        private readonly Subject<Presentation> _presentationStartingSubject = new Subject<Presentation>();
-        private readonly Subject<Phase> _phaseStartingSubject = new Subject<Phase>();
+        private readonly Subject<IPresentation> _presentationStartingSubject = new Subject<IPresentation>();
+        private readonly Subject<IPhase> _phaseStartingSubject = new Subject<IPhase>();
         private readonly Subject<CompletedPhase> _phaseCompletedSubject = new Subject<CompletedPhase>();
-        private readonly Subject<Presentation> _presentationCompletedSubject = new Subject<Presentation>();
+        private readonly Subject<IPresentation> _presentationCompletedSubject = new Subject<IPresentation>();
 
         #endregion
 
@@ -24,124 +24,96 @@ namespace Silphid.Showzup
         [Inject] internal IPhaseCoordinator PhaseCoordinator { get; set; }
         [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
 
-        public IObservable<Presentation> PresentationStarting => _presentationStartingSubject;
-        public IObservable<Phase> PhaseStarting => _phaseStartingSubject;
+        public IObservable<IPresentation> PresentationStarting => _presentationStartingSubject;
+        public IObservable<IPhase> PhaseStarting => _phaseStartingSubject;
         public IObservable<CompletedPhase> PhaseCompleted => _phaseCompletedSubject;
-        public IObservable<Presentation> PresentationCompleted => _presentationCompletedSubject;
+        public IObservable<IPresentation> PresentationCompleted => _presentationCompletedSubject;
 
         public IObservable<IView> Present(object input, IView sourceView, IList<string> presenterVariants,
-            Transition defaultTransition, Options options, Func<IView, IView, Transition, float, Options, IObservable<Unit>> transitionOperation)
+            Transition defaultTransition, Options options, Func<Phase, IObservable<Unit>> transitionOperation)
         {
-            IView targetView = null;
-
             var viewInfo = ResolveView(input, presenterVariants, options);
             var presentation = CreatePresentation(viewInfo, sourceView, options);
             var transition = ResolveTransition(sourceView?.GetType(), viewInfo.ViewType, defaultTransition);
             var duration = ResolveDuration(transition, options);
 
             var phaseProvider = new PhaseProvider(
-                () => PerformDeconstructionPhase(presentation, sourceView),
-                () => PerformLoadPhase(presentation, viewInfo)
-                    .Do(view => targetView = view)
-                    .AsSingleUnitObservable(),
-                () => PerformTransitionPhase(presentation, sourceView, targetView, input, transition, duration, options,
-                    transitionOperation),
-                () => PerformConstructionPhase(presentation, targetView),
-                (phaseId, func) => () => PerformCustomPhase(presentation, phaseId, func));
+                () => PerformDeconstructionPhase(presentation),
+                () => PerformLoadPhase(presentation, viewInfo),
+                () => PerformTransitionPhase(presentation, transition, duration, options, transitionOperation),
+                () => PerformConstructionPhase(presentation),
+                (createPhase, phaseOperation) => () => PerformPhase(createPhase, phaseOperation));
 
             return Sequence
                 .Create(seq =>
                 {
                     seq.AddAction(() => OnPresentationStarting(presentation));
-                    seq.Add(() => PhaseCoordinator.Coordinate(phaseProvider));
+                    seq.Add(() => PhaseCoordinator.Coordinate(presentation, phaseProvider));
                     seq.AddAction(() => OnPresentationCompleted(presentation));
                 })
-                .ThenReturn(targetView);
+                .ThenReturn(presentation.TargetView);
         }
 
         #region Virtual members
 
-        protected virtual void OnPresentationStarting(Presentation presentation)
+        protected virtual void OnPresentationStarting(IPresentation presentation)
         {
             _presentationStartingSubject.OnNext(presentation);
         }
 
-        protected virtual IObservable<Unit> PerformDeconstructionPhase(Presentation presentation, IView view)
-        {
-            var deconstructable = view as IDeconstructable;
-            return PerformPhase(presentation, PhaseId.Deconstruction, null,
-                deconstructable != null
-                    ? () => deconstructable.Deconstruct()
-                    : (Func<IObservable<Unit>>) null);
-        }
+        protected virtual IObservable<Unit> PerformDeconstructionPhase(IPresentation presentation) =>
+            PerformPhase(
+                parallel => new DeconstructionPhase(presentation, parallel),
+                phase => (phase.SourceView as IDeconstructable)?.Deconstruct() ?? Observable.ReturnUnit());
 
         [Pure]
-        protected virtual IObservable<IView> PerformLoadPhase(Presentation presentation, ViewInfo viewInfo)
-        {
-            IView view = null;
-            return PerformPhase(presentation, PhaseId.Load, null, () =>
-                    ViewLoader.Load(viewInfo)
-                        .Do(x => view = x)
-                        .AsUnitObservable())
-                .ThenReturn(view);
-        }
+        protected virtual IObservable<Unit> PerformLoadPhase(IPresentation presentation, ViewInfo viewInfo) =>
+            PerformPhase(
+                parallel => new LoadPhase(presentation, parallel),
+                phase => ViewLoader.Load(viewInfo)
+                    .Do(x => ((LoadPhase) phase).TargetView = x)
+                    .AsUnitObservable());
 
         [Pure]
-        protected virtual IObservable<Unit> PerformTransitionPhase(Presentation presentation, IView sourceView,
-            IView targetView, object input, Transition transition, float duration, Options options,
-            Func<IView, IView, Transition, float, Options, IObservable<Unit>> phaseOperation) =>
-            PerformPhase(presentation, PhaseId.Transition, duration,
-                () => phaseOperation(sourceView, targetView, transition, duration, options));
+        protected virtual IObservable<Unit> PerformTransitionPhase(IPresentation presentation,
+            Transition transition, float duration, Options options,
+            Func<Phase, IObservable<Unit>> phaseOperation) =>
+            PerformPhase(
+                parallel => new TransitionPhase(presentation, parallel, transition, duration),
+                phaseOperation);
 
-        protected virtual IObservable<Unit> PerformConstructionPhase(Presentation presentation, IView view)
-        {
-            var constructable = view as IConstructable;
-            return PerformPhase(presentation, PhaseId.Construction, null,
-                constructable != null
-                    ? () => constructable.Construct()
-                    : (Func<IObservable<Unit>>) null);
-        }
+        protected virtual IObservable<Unit> PerformConstructionPhase(IPresentation presentation) =>
+            PerformPhase(
+                parallel => new ConstructionPhase(presentation, parallel),
+                phase => (phase.TargetView as IConstructable)?.Construct() ?? Observable.ReturnUnit());
 
-        protected virtual IObservable<Unit> PerformCustomPhase(Presentation presentation, PhaseId phaseId,
-            Func<IObservable<Unit>> func) =>
-            PerformPhase(presentation, phaseId, null, func);
-
-        protected virtual void OnPresentationCompleted(Presentation presentation)
+        protected virtual void OnPresentationCompleted(IPresentation presentation)
         {
             _presentationCompletedSubject.OnNext(presentation);
         }
 
-        protected virtual ISequenceable PerformPhase(Presentation presentation, PhaseId phaseId, float? duration,
-            Func<IObservable<Unit>> phaseOperation = null) =>
+        protected virtual ISequenceable PerformPhase(
+            Func<Parallel, Phase> createPhase,
+            Func<Phase, IObservable<Unit>> phaseOperation = null) =>
             Sequence.Create(seq =>
             {
-                seq.AddParallel(parallel =>
-                {
-                    if (phaseOperation != null)
-                        parallel.Add(phaseOperation);
+                var phase = createPhase(Parallel.Create());
 
-                    _phaseStartingSubject.OnNext(
-                        new Phase(presentation, phaseId, duration, parallel));
-                });
+                if (phaseOperation != null)
+                    phase.Parallel.Add(() => phaseOperation(phase));
 
-                seq.AddAction(() => CompletePhase(presentation, phaseId));
+                seq.AddAction(() => _phaseStartingSubject.OnNext(phase));
+                seq.Add(phase.Parallel);
+                seq.AddAction(() => _phaseCompletedSubject.OnNext(
+                    new CompletedPhase(phase, phase.Id)));
             });
-
-        protected virtual void CompletePhase(Presentation presentation, PhaseId phaseId) =>
-            _phaseCompletedSubject.OnNext(new CompletedPhase(presentation, phaseId));
 
         #endregion
 
         #region Implementation
 
-        protected Presentation CreatePresentation(ViewInfo viewInfo, object sourceView, Options options) =>
-            new Presentation
-            {
-                ViewModel = viewInfo.ViewModel,
-                SourceViewType = sourceView?.GetType(),
-                TargetViewType = viewInfo.ViewType,
-                Options = options
-            };
+        protected Presentation CreatePresentation(ViewInfo viewInfo, IView sourceView, Options options) =>
+            new Presentation(viewInfo.ViewModel, sourceView, viewInfo.ViewType, options);
 
         protected ViewInfo ResolveView(object input, IList<string> presenterVariants, Options options) =>
             ViewResolver.Resolve(input, options.WithExtraVariants(presenterVariants));
