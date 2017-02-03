@@ -4,11 +4,9 @@ namespace Silphid.Showzup
 {
     public interface IPhasedPresenter : IPresenter
     {
-        ReadOnlyReactiveProperty<bool> IsPresenting { get; }
-        ReadOnlyReactiveProperty<bool> IsLoading { get; }
-        IObservable<Presentation> PresentStarting { get; }
+        IObservable<Presentation> PresentationStarting { get; }
         IObservable<Phase> PhaseStarting { get; }
         IObservable<CompletedPhase> PhaseCompleted { get; }
-        IObservable<Presentation> PresentCompleted { get; }
+        IObservable<Presentation> PresentationCompleted { get; }
     }
 }
