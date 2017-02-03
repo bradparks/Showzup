@@ -74,7 +74,7 @@ namespace Silphid.Showzup
             StartChange();
 
             _isLoading.Value = true;
-            return LoadView(input, options)
+            return ViewLoader.Load((ViewInfo) input)
                 .Do(_ => _isLoading.Value = false)
                 .ContinueWith(view =>
                 {
@@ -85,7 +85,7 @@ namespace Silphid.Showzup
 
                     return Observable
                         .WhenAll(
-                            OnTransition(input, transition, duration, options),
+                            PerformTransitionPhase(input, transition, duration, options),
                             nav.Parallel)
                         .DoOnCompleted(() =>
                         {
@@ -155,7 +155,7 @@ namespace Silphid.Showzup
             return Observable
                 .WhenAll(
                     // TODO: Keep original input in history and recover it here instead of null
-                    OnTransition(null, transition, duration, options),
+                    PerformTransitionPhase(null, transition, duration, options),
                     nav.Parallel)
                 .DoOnCompleted(() =>
                 {

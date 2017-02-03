@@ -14,16 +14,14 @@ namespace Silphid.Showzup
 
         private GameObject _sourceContainer;
         private GameObject _targetContainer;
-        private IView _sourceView;
-        private IView _targetView;
         private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
 
         private readonly ReactiveProperty<bool> _isPresenting = new ReactiveProperty<bool>();
         private readonly ReactiveProperty<bool> _isLoading = new ReactiveProperty<bool>();
-        private readonly Subject<Present> _presentStartingSubject = new Subject<Present>();
+        private readonly Subject<Presentation> _presentationStartingSubject = new Subject<Presentation>();
         private readonly Subject<Phase> _phaseStartingSubject = new Subject<Phase>();
         private readonly Subject<CompletedPhase> _phaseCompletedSubject = new Subject<CompletedPhase>();
-        private readonly Subject<Present> _presentCompletedSubject = new Subject<Present>();
+        private readonly Subject<Presentation> _presentationCompletedSubject = new Subject<Presentation>();
 
         #endregion
 
@@ -31,6 +29,7 @@ namespace Silphid.Showzup
 
         [Inject] internal IViewResolver ViewResolver { get; set; }
         [Inject] internal IViewLoader ViewLoader { get; set; }
+        [Inject] internal IPhaseCoordinator PhaseCoordinator { get; set; }
         [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
 
         public GameObject Container1;
@@ -44,10 +43,10 @@ namespace Silphid.Showzup
 
         public ReadOnlyReactiveProperty<bool> IsPresenting { get; }
         public ReadOnlyReactiveProperty<bool> IsLoading { get; }
-        public IObservable<Present> PresentStarting => _presentStartingSubject;
+        public IObservable<Presentation> PresentStarting => _presentationStartingSubject;
         public IObservable<Phase> PhaseStarting => _phaseStartingSubject;
         public IObservable<CompletedPhase> PhaseCompleted => _phaseCompletedSubject;
-        public IObservable<Present> PresentCompleted => _presentCompletedSubject;
+        public IObservable<Presentation> PresentCompleted => _presentationCompletedSubject;
 
         #endregion
 
@@ -74,22 +73,29 @@ namespace Silphid.Showzup
 
         public virtual IObservable<IView> Present(object input, Options options = null)
         {
-            var viewInfo = ResolveView(input, options);
-            var present = GetPresent(viewInfo, options);
-            var transition = ResolveTransition();
-            var duration = ResolveDuration(transition, options);
             var sourceView = _view.Value;
             IView targetView = null;
+
+            var viewInfo = ResolveView(input, options);
+            var presentation = CreatePresentation(viewInfo, options);
+            var transition = ResolveTransition(sourceView?.GetType(), viewInfo.ViewType);
+            var duration = ResolveDuration(transition, options);
+
+            var phaseProvider = new PhaseProvider(
+                () => PerformDeconstructionPhase(presentation, sourceView),
+                () => PerformLoadPhase(presentation, viewInfo)
+                    .Do(view => targetView = view)
+                    .AsSingleUnitObservable(),
+                () => PerformTransitionPhase(presentation, sourceView, targetView, input, transition, duration, options),
+                () => PerformConstructionPhase(presentation, targetView),
+                (phaseId, func) => () => PerformCustomPhase(presentation, phaseId, func));
 
             return Sequence
                 .Create(seq =>
                 {
-                    seq.AddAction(() => OnPresentStarting(present));
-                    seq.Add(() => OnDeconstruction(present, sourceView));
-                    seq.Add(() => OnLoadView(present, viewInfo).Do(view => targetView = view));
-                    seq.Add(() => OnTransition(present, input, transition, duration, options));
-                    seq.Add(() => OnConstruction(present, targetView));
-                    seq.AddAction(() => OnPresentCompleted(present));
+                    seq.AddAction(() => OnPresentationStarting(presentation));
+                    seq.Add(() => PhaseCoordinator.Coordinate(phaseProvider));
+                    seq.AddAction(() => OnPresentationCompleted(presentation));
                 })
                 .ThenReturn(targetView);
         }
@@ -98,84 +104,82 @@ namespace Silphid.Showzup
 
         #region Virtual members
 
-        protected virtual void OnPresentStarting(Present present)
+        protected virtual void OnPresentationStarting(Presentation presentation)
         {
-            _presentStartingSubject.OnNext(present);
+            _presentationStartingSubject.OnNext(presentation);
         }
 
-        protected virtual IObservable<Unit> OnDeconstruction(Present present, IView view)
+        protected virtual IObservable<Unit> PerformDeconstructionPhase(Presentation presentation, IView view)
         {
             var deconstructable = view as IDeconstructable;
-            return StartPhase(present, PhaseId.Deconstruction, null,
+            return PerformPhase(presentation, PhaseId.Deconstruction, null,
                 deconstructable != null
                     ? () => deconstructable.Deconstruct()
                     : (Func<IObservable<Unit>>) null);
         }
 
         [Pure]
-        protected virtual IObservable<IView> OnLoadView(Present present, ViewInfo viewInfo)
+        protected virtual IObservable<IView> PerformLoadPhase(Presentation presentation, ViewInfo viewInfo)
         {
             IView view = null;
-            return StartPhase(present, PhaseId.Load, null, () =>
-                    LoadView(viewInfo)
+            return PerformPhase(presentation, PhaseId.Load, null, () =>
+                    ViewLoader.Load(viewInfo)
                         .Do(x => view = x)
                         .AsUnitObservable())
                 .ThenReturn(view);
         }
 
         [Pure]
-        protected virtual IObservable<Unit> OnTransition(Present present, object input, Transition transition, float duration, Options options) =>
-            StartPhase(present, PhaseId.Transition, duration, () =>
+        protected virtual IObservable<Unit> PerformTransitionPhase(Presentation presentation, IView sourceView, IView targetView, object input, Transition transition, float duration, Options options) =>
+            PerformPhase(presentation, PhaseId.Transition, duration, () =>
             {
-                PrepareContainers(_targetView, transition, options.GetDirection());
+                PrepareContainers(transition, targetView, options.GetDirection());
                 return transition
                     .Perform(_sourceContainer, _targetContainer, options.GetDirection(), duration)
-                    .DoOnCompleted(() => CompleteTransition(transition));
+                    .DoOnCompleted(() => CompleteTransition(transition, sourceView, targetView));
             });
 
-        protected virtual IObservable<Unit> OnConstruction(Present present, IView view)
+        protected virtual IObservable<Unit> PerformConstructionPhase(Presentation presentation, IView view)
         {
             var constructable = view as IConstructable;
-            return StartPhase(present, PhaseId.Construction, null,
+            return PerformPhase(presentation, PhaseId.Construction, null,
                 constructable != null
                     ? () => constructable.Construct()
                     : (Func<IObservable<Unit>>) null);
         }
 
-        protected virtual void OnPresentCompleted(Present present)
+        protected virtual IObservable<Unit> PerformCustomPhase(Presentation presentation, PhaseId phaseId, Func<IObservable<Unit>> func) =>
+            PerformPhase(presentation, phaseId, null, func);
+
+        protected virtual void OnPresentationCompleted(Presentation presentation)
         {
-            _presentCompletedSubject.OnNext(present);
+            _presentationCompletedSubject.OnNext(presentation);
         }
 
-        protected virtual ISequenceable StartPhase(Present present, PhaseId phaseId, float? duration, Func<IObservable<Unit>> func = null) =>
+        protected virtual ISequenceable PerformPhase(Presentation presentation, PhaseId phaseId, float? duration, Func<IObservable<Unit>> phaseOperation = null) =>
             Sequence.Create(seq =>
             {
                 seq.AddParallel(parallel =>
                 {
-                    _phaseStartingSubject.OnNext(
-                        new Phase(present, phaseId, duration, parallel));
+                    if (phaseOperation != null)
+                        parallel.Add(phaseOperation);
 
-                    if (func != null)
-                        parallel.Add(func);
+                    _phaseStartingSubject.OnNext(
+                        new Phase(presentation, phaseId, duration, parallel));
                 });
 
-                seq.AddAction(() =>
-                    _phaseCompletedSubject.OnNext(
-                        new CompletedPhase(present, phaseId)));
+                seq.AddAction(() => CompletePhase(presentation, phaseId));
             });
 
-        protected virtual void CompletePhase(Present present, PhaseId phaseId)
-        {
-            _phaseCompletedSubject.OnNext(
-                new CompletedPhase(present, phaseId));
-        }
+        protected virtual void CompletePhase(Presentation presentation, PhaseId phaseId) =>
+            _phaseCompletedSubject.OnNext(new CompletedPhase(presentation, phaseId));
 
         #endregion
 
         #region Implementation
 
-        protected Present GetPresent(ViewInfo viewInfo, Options options) =>
-            new Present
+        protected Presentation CreatePresentation(ViewInfo viewInfo, Options options) =>
+            new Presentation
             {
                 ViewModel = viewInfo.ViewModel,
                 SourceViewType = _view.Value?.GetType(),
@@ -184,30 +188,15 @@ namespace Silphid.Showzup
             };
 
         protected ViewInfo ResolveView(object input, Options options) =>
-            ViewResolver
-                .Resolve(input, options.WithExtraVariants(Variants));
+            ViewResolver.Resolve(input, options.WithExtraVariants(Variants));
 
-        protected IObservable<IView> LoadView(ViewInfo viewInfo) =>
-            ViewLoader
-                .Load(viewInfo)
-                .Do(OnViewReady);
-
-        protected void OnViewReady(IView view)
-        {
-            Debug.Log($"#Transition# View ready: {view}");
-            _sourceView = _view.Value;
-            _targetView = view;
-        }
-
-        protected Transition ResolveTransition() =>
-            TransitionResolver?.Resolve(_sourceView, _targetView)
-            ?? DefaultTransition;
+        protected Transition ResolveTransition(Type sourceViewType, Type targetViewType) =>
+            TransitionResolver?.Resolve(sourceViewType, targetViewType) ?? DefaultTransition;
 
         protected float ResolveDuration(Transition transition, Options options) =>
-            options?.TransitionDuration
-            ?? transition.Duration;
+            options?.TransitionDuration ?? transition.Duration;
 
-        private void PrepareContainers(IView targetView, Transition transition, Direction direction)
+        private void PrepareContainers(Transition transition, IView targetView, Direction direction)
         {
             // Lazily initialize containers
             _sourceContainer = _sourceContainer ?? Container1;
@@ -227,11 +216,11 @@ namespace Silphid.Showzup
                 targetView.IsActive = true;
         }
 
-        protected virtual void CompleteTransition(Transition transition)
+        protected virtual void CompleteTransition(Transition transition, IView sourceView, IView targetView)
         {
-            if (_sourceView != null)
-                _sourceView.IsActive = false;
-            _view.Value = _targetView;
+            if (sourceView != null)
+                sourceView.IsActive = false;
+            _view.Value = targetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);
             transition.Complete(_sourceContainer, _targetContainer);

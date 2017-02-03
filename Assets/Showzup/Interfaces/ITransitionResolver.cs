@@ -1,7 +1,9 @@
-﻿namespace Silphid.Showzup
+﻿using System;
+
+namespace Silphid.Showzup
 {
     public interface ITransitionResolver
     {
-        Transition Resolve(IView source, IView target);
+        Transition Resolve(Type sourceViewType, Type targetViewType);
     }
 }

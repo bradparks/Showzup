@@ -2,7 +2,7 @@
 
 namespace Silphid.Showzup
 {
-    public struct Present
+    public struct Presentation
     {
         public object ViewModel { get; set; }
         public Type SourceViewType { get; set; }

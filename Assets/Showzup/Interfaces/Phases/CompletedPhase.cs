@@ -2,12 +2,12 @@
 {
     public struct CompletedPhase
     {
-        public Present Present { get; }
+        public Presentation Presentation { get; }
         public PhaseId Id { get; }
 
-        public CompletedPhase(Present present, PhaseId id)
+        public CompletedPhase(Presentation presentation, PhaseId id)
         {
-            Present = present;
+            Presentation = presentation;
             Id = id;
         }
     }

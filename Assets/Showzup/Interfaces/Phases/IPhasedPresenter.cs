@@ -6,9 +6,9 @@ namespace Silphid.Showzup
     {
         ReadOnlyReactiveProperty<bool> IsPresenting { get; }
         ReadOnlyReactiveProperty<bool> IsLoading { get; }
-        IObservable<Present> PresentStarting { get; }
+        IObservable<Presentation> PresentStarting { get; }
         IObservable<Phase> PhaseStarting { get; }
         IObservable<CompletedPhase> PhaseCompleted { get; }
-        IObservable<Present> PresentCompleted { get; }
+        IObservable<Presentation> PresentCompleted { get; }
     }
 }
