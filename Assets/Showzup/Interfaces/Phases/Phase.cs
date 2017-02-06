@@ -7,14 +7,12 @@ namespace Silphid.Showzup
     {
         protected readonly IPresentation _presentation;
 
-        public PhaseId Id { get; }
         public ISequenceable Parallel { get; }
         public float? Duration { get; }
 
-        public Phase(IPresentation presentation, PhaseId id, ISequenceable parallel, float? duration = null)
+        public Phase(IPresentation presentation, ISequenceable parallel, float? duration = null)
         {
             _presentation = presentation;
-            Id = id;
             Parallel = parallel;
             Duration = duration;
         }

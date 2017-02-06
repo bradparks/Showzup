@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using Silphid.Extensions;
 using Silphid.Sequencit;
 using UniRx;
-using Zenject;
 
 namespace Silphid.Showzup
 {
@@ -12,6 +11,10 @@ namespace Silphid.Showzup
     {
         #region Fields
 
+        private readonly IViewResolver _viewResolver;
+        private readonly IViewLoader _viewLoader;
+        private readonly IPhaseCoordinator _phaseCoordinator;
+        private readonly ITransitionResolver _transitionResolver;
         private readonly Subject<IPresentation> _presentationStartingSubject = new Subject<IPresentation>();
         private readonly Subject<IPhase> _phaseStartingSubject = new Subject<IPhase>();
         private readonly Subject<CompletedPhase> _phaseCompletedSubject = new Subject<CompletedPhase>();
@@ -19,15 +22,18 @@ namespace Silphid.Showzup
 
         #endregion
 
-        [Inject] internal IViewResolver ViewResolver { get; set; }
-        [Inject] internal IViewLoader ViewLoader { get; set; }
-        [Inject] internal IPhaseCoordinator PhaseCoordinator { get; set; }
-        [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
-
         public IObservable<IPresentation> PresentationStarting => _presentationStartingSubject;
         public IObservable<IPhase> PhaseStarting => _phaseStartingSubject;
         public IObservable<CompletedPhase> PhaseCompleted => _phaseCompletedSubject;
         public IObservable<IPresentation> PresentationCompleted => _presentationCompletedSubject;
+
+        public PhasedPresenterImpl(IViewResolver viewResolver, IViewLoader viewLoader, IPhaseCoordinator phaseCoordinator, ITransitionResolver transitionResolver = null)
+        {
+            _viewResolver = viewResolver;
+            _viewLoader = viewLoader;
+            _phaseCoordinator = phaseCoordinator;
+            _transitionResolver = transitionResolver;
+        }
 
         public IObservable<IView> Present(object input, IView sourceView, IList<string> presenterVariants,
             Transition defaultTransition, Options options, Func<Phase, IObservable<Unit>> transitionOperation)
@@ -48,7 +54,7 @@ namespace Silphid.Showzup
                 .Create(seq =>
                 {
                     seq.AddAction(() => OnPresentationStarting(presentation));
-                    seq.Add(() => PhaseCoordinator.Coordinate(presentation, phaseProvider));
+                    seq.Add(() => _phaseCoordinator.Coordinate(presentation, phaseProvider));
                     seq.AddAction(() => OnPresentationCompleted(presentation));
                 })
                 .ThenReturn(presentation.TargetView);
@@ -70,7 +76,7 @@ namespace Silphid.Showzup
         protected virtual IObservable<Unit> PerformLoadPhase(IPresentation presentation, ViewInfo viewInfo) =>
             PerformPhase(
                 parallel => new LoadPhase(presentation, parallel),
-                phase => ViewLoader.Load(viewInfo)
+                phase => _viewLoader.Load(viewInfo)
                     .Do(x => ((LoadPhase) phase).TargetView = x)
                     .AsUnitObservable());
 
@@ -87,11 +93,6 @@ namespace Silphid.Showzup
                 parallel => new ConstructionPhase(presentation, parallel),
                 phase => (phase.TargetView as IConstructable)?.Construct() ?? Observable.ReturnUnit());
 
-        protected virtual void OnPresentationCompleted(IPresentation presentation)
-        {
-            _presentationCompletedSubject.OnNext(presentation);
-        }
-
         protected virtual ISequenceable PerformPhase(
             Func<Parallel, Phase> createPhase,
             Func<Phase, IObservable<Unit>> phaseOperation = null) =>
@@ -105,8 +106,13 @@ namespace Silphid.Showzup
                 seq.AddAction(() => _phaseStartingSubject.OnNext(phase));
                 seq.Add(phase.Parallel);
                 seq.AddAction(() => _phaseCompletedSubject.OnNext(
-                    new CompletedPhase(phase, phase.Id)));
+                    new CompletedPhase(phase)));
             });
+
+        protected virtual void OnPresentationCompleted(IPresentation presentation)
+        {
+            _presentationCompletedSubject.OnNext(presentation);
+        }
 
         #endregion
 
@@ -116,11 +122,11 @@ namespace Silphid.Showzup
             new Presentation(viewInfo.ViewModel, sourceView, viewInfo.ViewType, options);
 
         protected ViewInfo ResolveView(object input, IList<string> presenterVariants, Options options) =>
-            ViewResolver.Resolve(input, options.WithExtraVariants(presenterVariants));
+            _viewResolver.Resolve(input, options.WithExtraVariants(presenterVariants));
 
         protected Transition ResolveTransition(Type sourceViewType, Type targetViewType,
             Transition defaultTransition) =>
-            TransitionResolver?.Resolve(sourceViewType, targetViewType) ?? defaultTransition;
+            _transitionResolver?.Resolve(sourceViewType, targetViewType) ?? defaultTransition;
 
         protected float ResolveDuration(Transition transition, Options options) =>
             options?.TransitionDuration ?? transition.Duration;
