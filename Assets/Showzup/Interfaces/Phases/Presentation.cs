@@ -11,6 +11,7 @@ namespace Silphid.Showzup
         public Type SourceViewType => SourceView?.GetType();
         public Type TargetViewType { get; }
         public Options Options { get; }
+        public float TransitionDuration { get; set; }
 
         public Presentation(object viewModel, IView sourceView, Type targetViewType, Options options)
         {

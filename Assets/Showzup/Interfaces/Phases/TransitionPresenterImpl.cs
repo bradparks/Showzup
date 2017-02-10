@@ -62,12 +62,12 @@ namespace Silphid.Showzup
             var viewInfo = ResolveView(input, presenterVariants, options);
             var presentation = CreatePresentation(viewInfo, sourceView, options);
             var transition = ResolveTransition(presentation, defaultTransition);
-            var duration = ResolveDuration(transition, options);
+            presentation.TransitionDuration = ResolveDuration(transition, options);
 
             var phaseProvider = new PhaseProvider(
                 () => PerformDeconstructionPhase(presentation),
                 () => PerformLoadPhase(presentation, viewInfo),
-                () => PerformTransitionPhase(presentation, transition, duration, options, transitionOperation),
+                () => PerformTransitionPhase(presentation, transition, options, transitionOperation),
                 () => PerformConstructionPhase(presentation),
                 (createPhase, phaseOperation) => () => PerformPhase(createPhase, phaseOperation));
 
@@ -110,11 +110,9 @@ namespace Silphid.Showzup
                     .AsUnitObservable());
 
         [Pure]
-        protected virtual IObservable<Unit> PerformTransitionPhase(Presentation presentation,
-            Transition transition, float duration, Options options,
-            Func<Phase, IObservable<Unit>> phaseOperation) =>
+        protected virtual IObservable<Unit> PerformTransitionPhase(Presentation presentation, Transition transition, Options options, Func<Phase, IObservable<Unit>> phaseOperation) =>
             PerformPhase(
-                parallel => new TransitionPhase(presentation, parallel, transition, duration),
+                parallel => new TransitionPhase(presentation, parallel, transition),
                 phaseOperation);
 
         protected virtual IObservable<Unit> PerformConstructionPhase(Presentation presentation) =>

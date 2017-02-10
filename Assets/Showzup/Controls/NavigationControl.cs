@@ -129,7 +129,7 @@ namespace Silphid.Showzup
 
         private void AssertCanPresent()
         {
-            if (IsReady.Value)
+            if (!IsReady.Value)
                 throw new InvalidOperationException("Cannot present at this moment");
         }
 
