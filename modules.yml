@@ -1,0 +1,13 @@
+#List of submodules dependencies
+#IMPORTANT: This file must be placed inside the Unity project, at the same levels of the Assets folder
+- name: Loadzup
+  location: Assets/Plugins/Silphid/Loadzup
+  target: Submodules/Loadzup/Assets/Loadzup
+  
+- name: Sequencit
+  location: Assets/Plugins/Silphid/Sequencit
+  target: Submodules/Sequencit/Assets/Sequencit
+
+- name: LINQtoGameObject
+  location: Assets/Plugins/LINQtoGameObject
+  target: Submodules/LINQtoGameObject/Assets/LINQtoGameObject/Scripts
