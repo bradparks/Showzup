@@ -7,7 +7,7 @@ namespace Silphid.Showzup
     public class DefaultPhaseCoordinator : IPhaseCoordinator
     {
         [Pure]
-        public IObservable<Unit> Coordinate(IPresentation presentation, IPhaseProvider provider) =>
+        public IObservable<Unit> Coordinate(Presentation presentation, IPhaseProvider provider) =>
             Sequence
                 .Create(seq =>
                 {

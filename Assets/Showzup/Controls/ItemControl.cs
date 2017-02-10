@@ -16,6 +16,7 @@ namespace Silphid.Showzup
 
         #region Properties
 
+        [Inject] internal IViewResolver ViewResolver { get; set; }
         [Inject] internal IViewLoader ViewLoader { get; set; }
         public GameObject Container;
         public string[] Variants;
@@ -39,8 +40,10 @@ namespace Silphid.Showzup
         {
             Debug.Log($"#Content# Present({input}, {options})");
 
+            var viewInfo = ViewResolver.Resolve(input, options.WithExtraVariants(Variants));
+
             return ViewLoader
-                .Load(input, options.WithExtraVariants(Variants))
+                .Load(viewInfo)
                 .Do(view =>
                 {
                     ReplaceView(Container, view);
@@ -49,6 +52,6 @@ namespace Silphid.Showzup
                 });
         }
 
-        #endregion
+    #endregion
     }
 }

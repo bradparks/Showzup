@@ -3,29 +3,32 @@ using Silphid.Sequencit;
 
 namespace Silphid.Showzup
 {
-    public class Phase : IPhase
+    public class Phase
     {
-        protected readonly IPresentation _presentation;
-
-        public ISequenceable Parallel { get; }
+        public Presentation Presentation { get; }
+        public Parallel Parallel { get; }
         public float? Duration { get; }
 
-        public Phase(IPresentation presentation, ISequenceable parallel, float? duration = null)
+        public Phase(Presentation presentation, Parallel parallel, float? duration = null)
         {
-            _presentation = presentation;
+            Presentation = presentation;
             Parallel = parallel;
             Duration = duration;
         }
 
-        public object ViewModel => _presentation.ViewModel;
-        public IView SourceView => _presentation.SourceView;
+        public object SourceViewModel => Presentation.SourceViewModel;
+        public object TargetViewModel => Presentation.TargetViewModel;
+        public IView SourceView => Presentation.SourceView;
         public IView TargetView
         {
-            get { return _presentation.TargetView; }
-            set { _presentation.TargetView = value; }
+            get { return Presentation.TargetView; }
+            set { Presentation.TargetView = value; }
         }
-        public Type SourceViewType => _presentation.SourceViewType;
-        public Type TargetViewType => _presentation.TargetViewType;
-        public Options Options => _presentation.Options;
+        public Type SourceViewType => Presentation.SourceViewType;
+        public Type TargetViewType => Presentation.TargetViewType;
+        public Options Options => Presentation.Options;
+
+        public override string ToString() =>
+            $"{nameof(Duration)}: {Duration}, {nameof(TargetViewModel)}: {TargetViewModel}, {nameof(SourceView)}: {SourceView}, {nameof(TargetView)}: {TargetView}, {nameof(SourceViewType)}: {SourceViewType}, {nameof(TargetViewType)}: {TargetViewType}, {nameof(Options)}: {Options}";
     }
 }

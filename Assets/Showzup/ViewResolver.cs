@@ -101,7 +101,9 @@ namespace Silphid.Showzup
                 return ResolveFromViewType(type, options);
             }
 
-            return ResolveFromViewModelType(input.GetType(), options);
+            var viewInfo = ResolveFromViewModelType(input.GetType(), options);
+            viewInfo.ViewModel = input;
+            return viewInfo;
         }
 
         private ViewInfo ResolveFromViewModelType(Type viewModelType, Options options = null) =>

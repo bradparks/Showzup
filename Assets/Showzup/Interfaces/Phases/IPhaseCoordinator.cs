@@ -5,6 +5,6 @@ namespace Silphid.Showzup
 {
     public interface IPhaseCoordinator
     {
-        [Pure] IObservable<Unit> Coordinate(IPresentation presentation, IPhaseProvider provider);
+        [Pure] IObservable<Unit> Coordinate(Presentation presentation, IPhaseProvider provider);
     }
 }

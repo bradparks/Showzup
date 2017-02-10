@@ -4,7 +4,7 @@ using Zenject;
 
 namespace Silphid.Showzup
 {
-    public class TransitionControl : Control, IPhasedPresenter
+    public class TransitionControl : Control, ITransitionPresenter
     {
         #region Fields
 
@@ -16,7 +16,7 @@ namespace Silphid.Showzup
 
         #region Properties
 
-        [Inject] protected PhasedPresenterImpl PhasedPresenter { get; set; }
+        [Inject] protected TransitionPresenterImpl TransitionPresenter { get; set; }
 
         public GameObject Container1;
         public GameObject Container2;
@@ -27,10 +27,12 @@ namespace Silphid.Showzup
 
         #region IPhasedPresenter members
 
-        public IObservable<IPresentation> PresentationStarting => PhasedPresenter.PresentationStarting;
-        public IObservable<IPhase> PhaseStarting => PhasedPresenter.PhaseStarting;
-        public IObservable<CompletedPhase> PhaseCompleted => PhasedPresenter.PhaseCompleted;
-        public IObservable<IPresentation> PresentationCompleted => PhasedPresenter.PresentationCompleted;
+        public ReadOnlyReactiveProperty<bool> IsReady => TransitionPresenter.IsReady;
+        public ReadOnlyReactiveProperty<bool> IsLoading => TransitionPresenter.IsLoading;
+        public IObservable<Presentation> Presenting => TransitionPresenter.PresentationStarting;
+        public IObservable<Phase> Phases => TransitionPresenter.PhaseStarting;
+        public IObservable<CompletedPhase> CompletedPhases => TransitionPresenter.PhaseCompleted;
+        public IObservable<Presentation> Presented => TransitionPresenter.PresentationCompleted;
 
         #endregion
 
@@ -50,12 +52,12 @@ namespace Silphid.Showzup
         #region IPresenter members
 
         public virtual IObservable<IView> Present(object input, Options options = null) =>
-            PhasedPresenter.Present(input, _view, Variants, DefaultTransition, options,
-                phase => PerformTransition((TransitionPhase) phase));
+            TransitionPresenter.Present(input, _view, Variants, DefaultTransition, options,
+                null, phase => PerformTransition((TransitionPhase) phase), null);
 
         #endregion
 
-        private IObservable<Unit> PerformTransition(TransitionPhase phase)
+        protected IObservable<Unit> PerformTransition(TransitionPhase phase)
         {
             PrepareContainers(phase);
             return phase.Transition

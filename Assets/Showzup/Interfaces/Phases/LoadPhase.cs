@@ -4,8 +4,8 @@ namespace Silphid.Showzup
 {
     public class LoadPhase : Phase
     {
-        public LoadPhase(IPresentation presentation, ISequenceable parallel)
-            : base(presentation, PhaseId.Load, parallel)
+        public LoadPhase(Presentation presentation, Parallel parallel)
+            : base(presentation, parallel)
         {
         }
     }

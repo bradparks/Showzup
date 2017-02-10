@@ -6,8 +6,8 @@ namespace Silphid.Showzup
     {
         public Transition Transition { get; }
 
-        public TransitionPhase(IPresentation presentation, ISequenceable parallel, Transition transition, float duration)
-            : base(presentation, PhaseId.Transition, parallel, duration)
+        public TransitionPhase(Presentation presentation, Parallel parallel, Transition transition, float duration)
+            : base(presentation, parallel, duration)
         {
             Transition = transition;
         }

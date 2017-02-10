@@ -9,8 +9,8 @@ namespace Silphid.Showzup
 {
     public class ListControl : Control, IPresenter
     {
-        [Inject]
-        internal IViewLoader ViewLoader { get; set; }
+        [Inject] internal IViewResolver ViewResolver { get; set; }
+        [Inject] internal IViewLoader ViewLoader { get; set; }
 
         public bool SizeToContent;
         public GameObject Container;
@@ -46,7 +46,11 @@ namespace Silphid.Showzup
                 return Observable.Empty<IView>();
 
             return items.Cast<object>().ToObservable()
-                .SelectMany(x => ViewLoader.Load(x, options.WithExtraVariants(Variants)));
+                .SelectMany(x =>
+                {
+                    var viewInfo = ViewResolver.Resolve(x, options.WithExtraVariants(Variants));
+                    return ViewLoader.Load(viewInfo);
+                });
         }
     }
 }

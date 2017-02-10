@@ -2,27 +2,27 @@
 
 namespace Silphid.Showzup
 {
-    public class CompletedPhase : IPresentation
+    public class CompletedPhase
     {
-        private readonly IPresentation _presentation;
-
+        public Presentation Presentation { get; }
         public Type PhaseType { get; }
 
-        public CompletedPhase(IPhase phase)
+        public CompletedPhase(Phase phase)
         {
-            _presentation = phase;
+            Presentation = phase.Presentation;
             PhaseType = phase.GetType();
         }
 
-        public object ViewModel => _presentation.ViewModel;
-        public IView SourceView => _presentation.SourceView;
+        public object SourceViewModel => Presentation.SourceViewModel;
+        public object TargetViewModel => Presentation.TargetViewModel;
+        public IView SourceView => Presentation.SourceView;
         public IView TargetView
         {
-            get { return _presentation.TargetView; }
-            set { _presentation.TargetView = value; }
+            get { return Presentation.TargetView; }
+            set { Presentation.TargetView = value; }
         }
-        public Type SourceViewType => _presentation.SourceViewType;
-        public Type TargetViewType => _presentation.TargetViewType;
-        public Options Options => _presentation.Options;
+        public Type SourceViewType => Presentation.SourceViewType;
+        public Type TargetViewType => Presentation.TargetViewType;
+        public Options Options => Presentation.Options;
     }
 }
