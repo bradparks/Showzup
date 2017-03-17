@@ -1,4 +1,6 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using JetBrains.Annotations;
 using UniRx;
@@ -16,6 +18,14 @@ namespace Silphid.Showzup
         public GameObject Container;
         public string[] Variants;
 
+        private readonly List<object> _items = new List<object>();
+        private readonly List<IView> _views = new List<IView>();
+
+        public ReadOnlyCollection<object> Items { get; }
+        public ReadOnlyCollection<IView> Views { get; }
+
+        public IView GetViewForViewModel(object viewModel) => Views.FirstOrDefault(x => x.ViewModel == viewModel);
+
         [Pure]
         public IObservable<IView> Present(object input, Options options = null)
         {
@@ -28,10 +38,19 @@ namespace Silphid.Showzup
         [Pure]
         private IObservable<IView> PresentInternal(IEnumerable items, Options options = null)
         {
+            _items.Clear();
+            _views.Clear();
+
+            _items.AddRange(items.Cast<object>());
+
             RemoveAllViews(Container);
 
             return LoadViews(items, options)
-                .Do(view => AddView(Container, view));
+                .Do(view =>
+                {
+                    _views.Add(view);
+                    AddView(Container, view);
+                });
         }
 
         [Inject]
