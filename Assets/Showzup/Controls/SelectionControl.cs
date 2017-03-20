@@ -10,7 +10,7 @@ namespace Silphid.Showzup
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
 
-        public SelectionControl()
+        public void Awake()
         {
             SelectedItem.Subscribe(x =>
                 {
