@@ -52,5 +52,13 @@ namespace Silphid.Showzup
                 })
                 .AddTo(this);
         }
+
+        public void SelectNext()
+        {
+        }
+
+        public void SelectPrevious()
+        {
+        }
     }
 }

@@ -18,11 +18,14 @@ namespace Silphid.Showzup
         public GameObject Container;
         public string[] Variants;
 
-        private readonly List<object> _items = new List<object>();
         private readonly List<IView> _views = new List<IView>();
 
-        public ReadOnlyCollection<object> Items { get; }
         public ReadOnlyCollection<IView> Views { get; }
+
+        public ListControl()
+        {
+            Views = _views.AsReadOnly();
+        }
 
         public IView GetViewForViewModel(object viewModel) => Views.FirstOrDefault(x => x.ViewModel == viewModel);
 
@@ -38,10 +41,7 @@ namespace Silphid.Showzup
         [Pure]
         private IObservable<IView> PresentInternal(IEnumerable items, Options options = null)
         {
-            _items.Clear();
             _views.Clear();
-
-            _items.AddRange(items.Cast<object>());
 
             RemoveAllViews(Container);
 
