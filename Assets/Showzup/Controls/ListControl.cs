@@ -64,8 +64,12 @@ namespace Silphid.Showzup
             if (items == null)
                 return Observable.Empty<IView>();
 
+            var optionsWithExtraVariants = options.WithExtraVariants(Variants);
             return items.Cast<object>().ToObservable()
-                .SelectMany(x => ViewLoader.Load(x, options.WithExtraVariants(Variants)));
+                .SelectMany(x => LoadView(x, optionsWithExtraVariants));
         }
+
+        protected virtual IObservable<IView> LoadView(object item, Options options) =>
+            ViewLoader.Load(item, options);
     }
 }
