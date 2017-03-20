@@ -65,20 +65,30 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
-        public void SelectNext()
+        public bool SelectNext()
         {
-            var currentIndex = Views.IndexOf(SelectedView.Value);
-            currentIndex++;
+            if (SelectedView.Value == null)
+                return false;
 
-            SelectedView.Value = currentIndex > Views.Count - 1 ? null : Views[currentIndex];
+            var newIndex = Views.IndexOf(SelectedView.Value) + 1;
+            if (newIndex >= Views.Count)
+                return false;
+
+            SelectedView.Value = Views[newIndex];
+            return true;
         }
 
-        public void SelectPrevious()
+        public bool SelectPrevious()
         {
-            var currentIndex = Views.IndexOf(SelectedView.Value);
-            currentIndex--;
+            if (SelectedView.Value == null)
+                return false;
 
-            SelectedView.Value = currentIndex < 0 ? null : Views[currentIndex];
+            var newIndex = Views.IndexOf(SelectedView.Value) - 1;
+            if (newIndex < 0)
+                return false;
+
+            SelectedView.Value = Views[newIndex];
+            return true;
         }
     }
 }
