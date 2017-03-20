@@ -13,25 +13,25 @@ namespace Silphid.Showzup
         public void Awake()
         {
             SelectedItem.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            {
+                if (_isItemOrViewChanging)
+                    return;
 
-                    _isItemOrViewChanging = true;
-                    SelectedView.Value = GetViewForViewModel(x);
-                    _isItemOrViewChanging = false;
-                })
+                _isItemOrViewChanging = true;
+                SelectedView.Value = GetViewForViewModel(x);
+                _isItemOrViewChanging = false;
+            })
                 .AddTo(this);
 
             SelectedView.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            {
+                if (_isItemOrViewChanging)
+                    return;
 
-                    _isItemOrViewChanging = true;
-                    SelectedItem.Value = x.ViewModel;
-                    _isItemOrViewChanging = false;
-                })
+                _isItemOrViewChanging = true;
+                SelectedItem.Value = x?.ViewModel;
+                _isItemOrViewChanging = false;
+            })
                 .AddTo(this);
 
             SubscribeSelectionUpdate(SelectedItem);
