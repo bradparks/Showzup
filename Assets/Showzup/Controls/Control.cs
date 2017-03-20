@@ -37,7 +37,7 @@ namespace Silphid.Showzup
             RemoveAllViews(container, view?.GameObject);
         }
 
-        protected void AddView(GameObject container, IView view)
+        protected virtual void AddView(GameObject container, IView view)
         {
             if (view == null)
                 return;

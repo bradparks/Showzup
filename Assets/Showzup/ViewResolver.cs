@@ -45,23 +45,16 @@ namespace Silphid.Showzup
                 from viewType in GetAllViewTypes()
                 let viewModelType = GetViewModelType(viewType)
                 let viewVariants = viewType.GetAttributes<VariantAttribute>().Select(x => x.Variant).ToArray()
-                from assetAttribute in viewType.GetRequiredAttributes<AssetAttribute>()
+                from assetAttribute in viewType.GetAttributes<AssetAttribute>()
                 select new ViewMapping(viewModelType, viewType, assetAttribute.Uri, viewVariants.Concat(assetAttribute.Variants)));
         }
 
-        private Type GetViewModelType(Type viewType)
-        {
-            var viewModel = viewType
+        private Type GetViewModelType(Type viewType) =>
+            viewType
                 .SelfAndAncestors()
                 .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(View<>))
                 ?.GetGenericArguments()
                 .FirstOrDefault();
-
-            if (viewModel == null)
-                throw new InvalidOperationException($"Could not determine view model associated with view type {viewType.Name}");
-
-            return viewModel;
-        }
 
         private IEnumerable<Type> GetAllViewTypes() =>
             from domainAssembly in AppDomain.CurrentDomain.GetAssemblies()

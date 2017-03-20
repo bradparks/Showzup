@@ -1,44 +1,42 @@
-﻿using Silphid.Extensions;
+﻿using System;
+using Silphid.Extensions;
 using UniRx;
 
 namespace Silphid.Showzup
 {
     public class SelectionControl : ListControl
     {
-        private bool _isItemOrViewChanging;
+        private bool _isSynching;
 
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
+        public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
 
-        public void Awake()
+        public virtual void Start()
         {
-            SelectedItem.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            SubscribeToUpdateSelectable(SelectedItem);
+            SubscribeToUpdateSelectable(SelectedView);
 
-                    _isItemOrViewChanging = true;
-                    SelectedView.Value = GetViewForViewModel(x);
-                    _isItemOrViewChanging = false;
-                })
-                .AddTo(this);
+            SubscribeToSynchOthers(SelectedItem, () =>
+            {
+                SelectedView.Value = GetViewForViewModel(SelectedItem.Value);
+                SelectedIndex.Value = IndexOfView(SelectedView.Value);
+            });
 
-            SelectedView.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            SubscribeToSynchOthers(SelectedView, () =>
+            {
+                SelectedItem.Value = SelectedView.Value?.ViewModel;
+                SelectedIndex.Value = IndexOfView(SelectedView.Value);
+            });
 
-                    _isItemOrViewChanging = true;
-                    SelectedItem.Value = x.ViewModel;
-                    _isItemOrViewChanging = false;
-                })
-                .AddTo(this);
-
-            SubscribeSelectionUpdate(SelectedItem);
-            SubscribeSelectionUpdate(SelectedView);
+            SubscribeToSynchOthers(SelectedIndex, () =>
+            {
+                SelectedView.Value = GetViewAtIndex(SelectedIndex.Value);
+                SelectedItem.Value = SelectedView.Value?.ViewModel;
+            });
         }
 
-        private void SubscribeSelectionUpdate<T>(IObservable<T> observable)
+        private void SubscribeToUpdateSelectable<T>(IObservable<T> observable)
         {
             observable
                 .PairWithPrevious()
@@ -53,20 +51,44 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
-        public void SelectNext()
+        private void SubscribeToSynchOthers<T>(IObservable<T> observable, Action synchAction)
         {
-            var currentIndex = Views.IndexOf(SelectedView.Value);
-            currentIndex++;
+            observable.Subscribe(x =>
+                {
+                    if (_isSynching)
+                        return;
 
-            SelectedView.Value = currentIndex > Views.Count - 1 ? null : Views[currentIndex];
+                    _isSynching = true;
+                    synchAction();
+                    _isSynching = false;
+                })
+                .AddTo(this);
         }
 
-        public void SelectPrevious()
+        public bool SelectNext()
         {
-            var currentIndex = Views.IndexOf(SelectedView.Value);
-            currentIndex--;
+            if (SelectedView.Value == null)
+                return false;
 
-            SelectedView.Value = currentIndex < 0 ? null : Views[currentIndex];
+            var newIndex = Views.IndexOf(SelectedView.Value) + 1;
+            if (newIndex >= Views.Count)
+                return false;
+
+            SelectedView.Value = Views[newIndex];
+            return true;
+        }
+
+        public bool SelectPrevious()
+        {
+            if (SelectedView.Value == null)
+                return false;
+
+            var newIndex = Views.IndexOf(SelectedView.Value) - 1;
+            if (newIndex < 0)
+                return false;
+
+            SelectedView.Value = Views[newIndex];
+            return true;
         }
     }
 }
