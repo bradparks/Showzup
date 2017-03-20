@@ -55,6 +55,9 @@ namespace Silphid.Showzup
 
         public bool SelectNext()
         {
+            if (SelectedView.Value == null)
+                return false;
+
             var currentIndex = Views.IndexOf(SelectedView.Value);
             currentIndex++;
 
@@ -67,6 +70,9 @@ namespace Silphid.Showzup
 
         public bool SelectPrevious()
         {
+            if (SelectedView.Value == null)
+                return false;
+
             var currentIndex = Views.IndexOf(SelectedView.Value);
             currentIndex--;
 
