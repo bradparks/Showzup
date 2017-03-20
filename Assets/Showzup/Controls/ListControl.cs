@@ -29,8 +29,23 @@ namespace Silphid.Showzup
 
         public IView GetViewForViewModel(object viewModel) => Views.FirstOrDefault(x => x.ViewModel == viewModel);
 
+        public int? IndexOfView(IView view)
+        {
+            if (view == null)
+                return null;
+
+            int index = Views.IndexOf(view);
+            if (index == -1)
+                return null;
+
+            return index;
+        }
+
+        public IView GetViewAtIndex(int? index) =>
+            index.HasValue ? Views[index.Value] : null;
+
         [Pure]
-        public IObservable<IView> Present(object input, Options options = null)
+        public virtual IObservable<IView> Present(object input, Options options = null)
         {
             if (!(input is IEnumerable))
                 input = new[] {input};

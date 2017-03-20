@@ -1,44 +1,42 @@
-﻿using Silphid.Extensions;
+﻿using System;
+using Silphid.Extensions;
 using UniRx;
 
 namespace Silphid.Showzup
 {
     public class SelectionControl : ListControl
     {
-        private bool _isItemOrViewChanging;
+        private bool _isSynching;
 
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
+        public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
 
-        public void Awake()
+        public virtual void Start()
         {
-            SelectedItem.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            SubscribeToUpdateSelectable(SelectedItem);
+            SubscribeToUpdateSelectable(SelectedView);
 
-                    _isItemOrViewChanging = true;
-                    SelectedView.Value = GetViewForViewModel(x);
-                    _isItemOrViewChanging = false;
-                })
-                .AddTo(this);
+            SubscribeToSynchOthers(SelectedItem, () =>
+            {
+                SelectedView.Value = GetViewForViewModel(SelectedItem.Value);
+                SelectedIndex.Value = IndexOfView(SelectedView.Value);
+            });
 
-            SelectedView.Subscribe(x =>
-                {
-                    if (_isItemOrViewChanging)
-                        return;
+            SubscribeToSynchOthers(SelectedView, () =>
+            {
+                SelectedItem.Value = SelectedView.Value?.ViewModel;
+                SelectedIndex.Value = IndexOfView(SelectedView.Value);
+            });
 
-                    _isItemOrViewChanging = true;
-                    SelectedItem.Value = x.ViewModel;
-                    _isItemOrViewChanging = false;
-                })
-                .AddTo(this);
-
-            SubscribeSelectionUpdate(SelectedItem);
-            SubscribeSelectionUpdate(SelectedView);
+            SubscribeToSynchOthers(SelectedIndex, () =>
+            {
+                SelectedView.Value = GetViewAtIndex(SelectedIndex.Value);
+                SelectedItem.Value = SelectedView.Value?.ViewModel;
+            });
         }
 
-        private void SubscribeSelectionUpdate<T>(IObservable<T> observable)
+        private void SubscribeToUpdateSelectable<T>(IObservable<T> observable)
         {
             observable
                 .PairWithPrevious()
@@ -49,6 +47,20 @@ namespace Silphid.Showzup
 
                     var current = x.Item2 as ISelectable;
                     if (current != null) current.IsSelected.Value = true;
+                })
+                .AddTo(this);
+        }
+
+        private void SubscribeToSynchOthers<T>(IObservable<T> observable, Action synchAction)
+        {
+            observable.Subscribe(x =>
+                {
+                    if (_isSynching)
+                        return;
+
+                    _isSynching = true;
+                    synchAction();
+                    _isSynching = false;
                 })
                 .AddTo(this);
         }
