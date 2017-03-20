@@ -55,10 +55,18 @@ namespace Silphid.Showzup
 
         public void SelectNext()
         {
+            var currentIndex = Views.IndexOf(SelectedView.Value);
+            currentIndex++;
+
+            SelectedView.Value = currentIndex > Views.Count - 1 ? null : Views[currentIndex];
         }
 
         public void SelectPrevious()
         {
+            var currentIndex = Views.IndexOf(SelectedView.Value);
+            currentIndex--;
+
+            SelectedView.Value = currentIndex < 0 ? null : Views[currentIndex];
         }
     }
 }
