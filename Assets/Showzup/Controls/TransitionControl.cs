@@ -1,6 +1,7 @@
 ﻿using Silphid.Extensions;
 using Silphid.Sequencit;
 using UniRx;
+using Unity.Linq;
 using UnityEngine;
 using Zenject;
 
@@ -64,7 +65,17 @@ namespace Silphid.Showzup
         protected IObservable<IView> LoadView(object input, Options options) =>
             ViewLoader
                 .Load(input, options.WithExtraVariants(Variants))
+                .Where(view => CheckCancellation(view, options))
                 .Do(OnViewReady);
+
+        private bool CheckCancellation(IView view, Options options)
+        {
+            if (!(options?.CancellationToken.IsCancellationRequested ?? false))
+                return true;
+
+            view.GameObject.Destroy();
+            return false;
+        }
 
         protected void OnViewReady(IView view)
         {
