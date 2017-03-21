@@ -6,7 +6,7 @@ namespace Silphid.Showzup.Navigation
     {
         public static readonly NavigationCommand None = new NavigationCommand();
         public static readonly NavigationCommand Select = new NavigationCommand();
-        public static readonly NavigationCommand Exit = new NavigationCommand();
+        public static readonly NavigationCommand Back = new NavigationCommand();
         public static readonly NavigationCommand Left = new NavigationCommand {Orientation = NavigationOrientation.Horizontal, Offset = -1};
         public static readonly NavigationCommand Right = new NavigationCommand {Orientation = NavigationOrientation.Horizontal, Offset = +1};
         public static readonly NavigationCommand Up = new NavigationCommand {Orientation = NavigationOrientation.Vertical, Offset = -1};
