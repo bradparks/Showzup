@@ -1,16 +1,18 @@
 ﻿using System;
 using Silphid.Extensions;
+using Silphid.Showzup.Navigation;
 using UniRx;
 
 namespace Silphid.Showzup
 {
-    public class SelectionControl : ListControl
+    public class SelectionControl : ListControl, INavigatable
     {
         private bool _isSynching;
 
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
         public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
+        public NavigationOrientation SupportedNavigationOrientations;
 
         public virtual void Start()
         {
@@ -65,30 +67,17 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
-        public bool SelectNext()
+        public virtual bool CanHandle(NavigationCommand command)
         {
-            if (SelectedView.Value == null)
-                return false;
-
-            var newIndex = Views.IndexOf(SelectedView.Value) + 1;
-            if (newIndex >= Views.Count)
-                return false;
-
-            SelectedView.Value = Views[newIndex];
-            return true;
+            return (SupportedNavigationOrientations & command.Orientation) != 0 &&
+                   SelectedIndex.Value + command.Offset >= 0 &&
+                   SelectedIndex.Value + command.Offset < Views.Count;
         }
 
-        public bool SelectPrevious()
+        public virtual void Handle(NavigationCommand command)
         {
-            if (SelectedView.Value == null)
-                return false;
-
-            var newIndex = Views.IndexOf(SelectedView.Value) - 1;
-            if (newIndex < 0)
-                return false;
-
-            SelectedView.Value = Views[newIndex];
-            return true;
+            if (CanHandle(command))
+                SelectedIndex.Value += command.Offset;
         }
     }
 }
