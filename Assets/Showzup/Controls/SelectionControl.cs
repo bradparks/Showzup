@@ -2,17 +2,18 @@
 using Silphid.Extensions;
 using Silphid.Showzup.Navigation;
 using UniRx;
+using UnityEngine.EventSystems;
 
 namespace Silphid.Showzup
 {
-    public class SelectionControl : ListControl, INavigatable
+    public class SelectionControl : ListControl, IMoveHandler
     {
         private bool _isSynching;
 
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
         public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
-        public NavigationOrientation SupportedNavigationOrientations;
+        public NavigationOrientation Orientation;
 
         public virtual void Start()
         {
@@ -67,17 +68,47 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
-        public virtual bool CanHandle(NavigationCommand command)
+        public bool SelectFirst()
         {
-            return (SupportedNavigationOrientations & command.Orientation) != 0 &&
-                   SelectedIndex.Value + command.Offset >= 0 &&
-                   SelectedIndex.Value + command.Offset < Views.Count;
+            if (Views.Count == 0)
+                return false;
+
+            SelectedIndex.Value = 0;
+            return true;
         }
 
-        public virtual void Handle(NavigationCommand command)
+        public bool SelectPrevious()
         {
-            if (CanHandle(command))
-                SelectedIndex.Value += command.Offset;
+            if (SelectedIndex.Value == 0)
+                return false;
+
+            SelectedIndex.Value--;
+            return true;
+        }
+
+        public bool SelectNext()
+        {
+            if (SelectedIndex.Value == Views.Count - 1)
+                return false;
+
+            SelectedIndex.Value++;
+            return true;
+        }
+
+        public void OnMove(AxisEventData eventData)
+        {
+            if (Orientation == NavigationOrientation.Horizontal)
+            {
+                if (eventData.moveDir == MoveDirection.Left && SelectPrevious() ||
+                    eventData.moveDir == MoveDirection.Right && SelectNext())
+                    eventData.Use();
+            }
+            else if (Orientation == NavigationOrientation.Vertical)
+            {
+                if (eventData.moveDir == MoveDirection.Up && SelectPrevious() ||
+                    eventData.moveDir == MoveDirection.Down && SelectNext())
+                    eventData.Use();
+            }
         }
     }
 }

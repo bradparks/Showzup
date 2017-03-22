@@ -1,4 +1,5 @@
 ﻿using System;
+using UniRx;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
@@ -8,17 +9,32 @@ namespace Silphid.Showzup.Navigation
     [AddComponentMenu("Event/Custom Input Module")]
     public class CustomInputModule : PointerInputModule
     {
+        public bool LogCurrentSelectedGameObject;
+
         private const float AxisDeadZone = 0.6f;
 
         private float m_PrevActionTime;
-        Vector2 m_LastMoveVector;
-        int m_ConsecutiveMoveCount;
+        private Vector2 m_LastMoveVector;
+        private int m_ConsecutiveMoveCount;
 
         private Vector2 m_LastMousePosition;
         private Vector2 m_MousePosition;
 
         protected CustomInputModule()
-        {}
+        {
+        }
+
+        protected override void Awake()
+        {
+            base.Awake();
+
+            Observable
+                .EveryUpdate()
+                .Where(_ => LogCurrentSelectedGameObject)
+                .Select(_ => eventSystem.currentSelectedGameObject)
+                .DistinctUntilChanged()
+                .Subscribe(x => Debug.Log($"#Select# Selection changed to: {x?.name}"));
+        }
 
         [Obsolete("Mode is no longer needed on input module as it handles both mouse and keyboard simultaneously.", false)]
         public enum InputMode
@@ -192,16 +208,16 @@ namespace Silphid.Showzup.Navigation
 
             var data = GetBaseEventData();
             if (Input.GetButtonDown(m_SubmitButton))
-                ExecuteEvents.Execute(eventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
+                ExecuteBubbling(eventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
 
             if (Input.GetButtonDown(m_CancelButton))
-                ExecuteEvents.Execute(eventSystem.currentSelectedGameObject, data, ExecuteEvents.cancelHandler);
+                ExecuteBubbling(eventSystem.currentSelectedGameObject, data, ExecuteEvents.cancelHandler);
             return data.used;
         }
 
         private Vector2 GetRawMoveVector()
         {
-            Vector2 move = Vector2.zero;
+            var move = Vector2.zero;
             move.x = Input.GetAxisRaw(m_HorizontalAxis);
             move.y = Input.GetAxisRaw(m_VerticalAxis);
 
@@ -238,23 +254,23 @@ namespace Silphid.Showzup.Navigation
 
             // If user pressed key again, always allow event
             bool allow = Input.GetButtonDown(m_HorizontalAxis) || Input.GetButtonDown(m_VerticalAxis);
-            bool similarDir = (Vector2.Dot(movement, m_LastMoveVector) > 0);
+            bool similarDir = Vector2.Dot(movement, m_LastMoveVector) > 0;
             if (!allow)
             {
                 // Otherwise, user held down key or axis.
                 // If direction didn't change at least 90 degrees, wait for delay before allowing consequtive event.
                 if (similarDir && m_ConsecutiveMoveCount == 1)
-                    allow = (time > m_PrevActionTime + m_RepeatDelay);
+                    allow = time > m_PrevActionTime + m_RepeatDelay;
                 // If direction changed at least 90 degree, or we already had the delay, repeat at repeat rate.
                 else
-                    allow = (time > m_PrevActionTime + 1f / m_InputActionsPerSecond);
+                    allow = time > m_PrevActionTime + 1f / m_InputActionsPerSecond;
             }
             if (!allow)
                 return false;
 
             // Debug.Log(m_ProcessingEvent.rawType + " axis:" + m_AllowAxisEvents + " value:" + "(" + x + "," + y + ")");
             var axisEventData = GetAxisEventData(movement.x, movement.y, AxisDeadZone);
-            ExecuteEvents.Execute(eventSystem.currentSelectedGameObject, axisEventData, ExecuteEvents.moveHandler);
+            ExecuteBubbling(eventSystem.currentSelectedGameObject, axisEventData, ExecuteEvents.moveHandler);
 
             if (!similarDir)
                 m_ConsecutiveMoveCount = 0;
@@ -403,6 +419,21 @@ namespace Silphid.Showzup.Navigation
                     HandlePointerExitAndEnter(pointerEvent, null);
                     HandlePointerExitAndEnter(pointerEvent, currentOverGo);
                 }
+            }
+        }
+
+        private static void ExecuteBubbling<T>(GameObject target, BaseEventData eventData,
+            ExecuteEvents.EventFunction<T> functor) where T : IEventSystemHandler
+        {
+            var current = target;
+            while (current != null)
+            {
+                var oldSelectedObject = eventData.selectedObject;
+                ExecuteEvents.Execute(current, eventData, functor);
+                if (eventData.used || eventData.selectedObject != oldSelectedObject)
+                    return;
+
+                current = current.transform.parent?.gameObject;
             }
         }
     }
