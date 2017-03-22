@@ -77,6 +77,20 @@ namespace Silphid.Showzup
             return true;
         }
 
+        public bool SelectLast()
+        {
+            if (Views.Count == 0)
+                return false;
+
+            SelectedIndex.Value = Views.Count - 1;
+            return true;
+        }
+
+        public void SelectNone()
+        {
+            SelectedItem.Value = null;
+        }
+
         public bool SelectPrevious()
         {
             if (SelectedIndex.Value == 0)
