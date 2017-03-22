@@ -44,11 +44,11 @@ namespace Silphid.Showzup
                 .PairWithPrevious()
                 .Subscribe(x =>
                 {
-                    var previous = x.Item1 as ISelectable;
-                    if (previous != null) previous.IsSelected.Value = false;
+                    var previous = x.Item1 as IFocusable;
+                    if (previous != null) previous.IsFocused.Value = false;
 
-                    var current = x.Item2 as ISelectable;
-                    if (current != null) current.IsSelected.Value = true;
+                    var current = x.Item2 as IFocusable;
+                    if (current != null) current.IsFocused.Value = true;
                 })
                 .AddTo(this);
         }

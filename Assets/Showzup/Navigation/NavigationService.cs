@@ -1,38 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UniRx;
+using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Silphid.Showzup.Navigation
 {
     public class NavigationService : INavigationService
     {
-        private readonly List<INavigatable> _navigatables = new List<INavigatable>();
-
-        public IDisposable Push(INavigatable navigatable)
+        public NavigationService()
         {
-            _navigatables.Add(navigatable);
-            return Disposable.Create(() => Pop(navigatable));
+            Observable
+                .EveryUpdate()
+                .Select(_ => EventSystem.current.currentSelectedGameObject)
+                .DistinctUntilChanged()
+                .Subscribe(x => Debug.Log($"#Select# Selection changed to: {x?.name}"));
         }
 
-        private void Pop(INavigatable navigatable)
+        private IEnumerable<INavigatable> Navigatables
         {
-            var index = _navigatables.IndexOf(navigatable);
-            if (index == -1)
-                return;
+            get
+            {
+                var current = EventSystem.current.currentSelectedGameObject;
+                while (current != null)
+                {
+                    var navigatable = current.GetComponent<INavigatable>();
+                    if (navigatable != null)
+                        yield return navigatable;
 
-            // Remove item and all following items
-            for (int i = _navigatables.Count - 1; i >= index; i--)
-                _navigatables.RemoveAt(i);
+                    current = current.transform.parent?.gameObject;
+                }
+            }
         }
 
         public bool CanHandle(NavigationCommand command) =>
-            _navigatables.LastOrDefault(x => x.CanHandle(command)) != null;
+            Navigatables.FirstOrDefault(x => x.CanHandle(command)) != null;
 
         public void Handle(NavigationCommand command)
         {
-            _navigatables
-                .LastOrDefault(x => x.CanHandle(command))
+            Navigatables
+                .FirstOrDefault(x => x.CanHandle(command))
                 ?.Handle(command);
         }
     }
