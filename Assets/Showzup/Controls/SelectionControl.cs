@@ -16,6 +16,7 @@ namespace Silphid.Showzup
         public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
 
         public NavigationOrientation Orientation;
+        public bool AutoFocus = true;
         public float FocusDelay;
 
         public virtual void Start()
@@ -56,7 +57,7 @@ namespace Silphid.Showzup
 
         private void SetFocus(IFocusable focusable)
         {
-            if (focusable == null)
+            if (!AutoFocus || focusable == null)
                 return;
 
             if (FocusDelay.IsAlmostZero())
@@ -72,7 +73,7 @@ namespace Silphid.Showzup
 
         private void RemoveFocus(IFocusable focusable)
         {
-            if (focusable == null)
+            if (!AutoFocus || focusable == null)
                 return;
 
             focusable.IsFocused.Value = false;
