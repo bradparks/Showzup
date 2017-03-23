@@ -25,13 +25,13 @@ namespace Silphid.Showzup
         {
             if (input == null)
             {
-                Debug.Log("#Views# Returning null view for null content");
+//                Debug.Log("#Views# Returning null view for null content");
                 return Observable.Return<IView>(null);
             }
 
             if (input is IView)
             {
-                Debug.Log("#Views# Returning content itself as view");
+//                Debug.Log("#Views# Returning content itself as view");
                 return Observable.Return((IView) input);
             }
 

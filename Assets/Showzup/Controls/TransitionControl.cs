@@ -80,7 +80,7 @@ namespace Silphid.Showzup
 
         protected void OnViewReady(IView view)
         {
-            Debug.Log($"#Transition# View ready: {view}");
+//            Debug.Log($"#Transition# View ready: {view}");
             _sourceView = _view.Value;
             _targetView = view;
         }
