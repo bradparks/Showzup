@@ -10,6 +10,26 @@ namespace Silphid.Showzup
 {
     public class TransitionControl : Control, IPresenter
     {
+        private enum State
+        {
+            Ready,
+            Loading,
+            Transitioning
+        }
+
+        private class PendingRequest
+        {
+            public readonly object Input;
+            public readonly Options Options;
+            public readonly Subject<IView> Subject = new Subject<IView>();
+
+            public PendingRequest(object input, Options options)
+            {
+                Input = input;
+                Options = options;
+            }
+        }
+
         #region Fields
 
         private GameObject _sourceContainer;
@@ -17,6 +37,11 @@ namespace Silphid.Showzup
         private IView _sourceView;
         private IView _targetView;
         private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
+        private readonly Subject<Unit> _loadCancellations = new Subject<Unit>();
+        private readonly SerialDisposable _requestDisposable = new SerialDisposable();
+
+        private State _state;
+        private PendingRequest _pendingRequest;
 
         #endregion
 
@@ -49,14 +74,64 @@ namespace Silphid.Showzup
 
         public virtual IObservable<IView> Present(object input, Options options = null)
         {
-            return LoadView(input, options)
+            if (_state == State.Ready)
+                return PresentNow(input, options);
+
+            if (_state == State.Loading)
+            {
+                CancelLoading();
+                return PresentNow(input, options);
+            }
+
+            // if (_state == State.Transitioning)
+            return PresentLater(input, options);
+        }
+
+        private IObservable<IView> PresentNow(object input, Options options)
+        {
+            _state = State.Loading;
+            return Observable
+                .Defer(() => LoadView(input, options))
+                .TakeUntil(_loadCancellations)
                 .ContinueWith(view =>
                 {
-                    var transition = ResolveTransition();
-                    var duration = ResolveDuration(transition, options);
-                    return PerformTransition(transition, duration, options)
-                        .ThenReturn(view);
+                    _state = State.Transitioning;
+                    return TransitionToView(view, options)
+                        .ThenReturn(view)
+                        .DoOnCompleted(CompleteRequest);
                 });
+        }
+
+        private IObservable<IView> PresentLater(object input, Options options)
+        {
+            // Complete any pending request without fulling it (we only allow a single pending request)
+            _pendingRequest?.Subject.OnCompleted();
+
+            // Prepare new pending request
+            _pendingRequest = new PendingRequest(input, options);
+            return _pendingRequest.Subject;
+        }
+
+        private void CancelLoading()
+        {
+            _state = State.Ready;
+            _loadCancellations.OnNext(Unit.Default);
+        }
+
+        private void CompleteRequest()
+        {
+            _requestDisposable.Disposable = null;
+            _state = State.Ready;
+
+            if (_pendingRequest != null)
+            {
+                var request = _pendingRequest;
+                _pendingRequest = null;
+
+                _requestDisposable.Disposable =
+                    PresentNow(request.Input, request.Options)
+                        .Subscribe(request.Subject);
+            }
         }
 
         #endregion
@@ -68,6 +143,13 @@ namespace Silphid.Showzup
                 .Load(input, options.WithExtraVariants(Variants))
                 .Where(view => CheckCancellation(view, options))
                 .Do(OnViewReady);
+
+        protected IObservable<Unit> TransitionToView(IView view, Options options)
+        {
+            var transition = ResolveTransition();
+            var duration = ResolveDuration(transition, options);
+            return PerformTransition(transition, duration, options);
+        }
 
         private bool CheckCancellation(IView view, Options options)
         {
