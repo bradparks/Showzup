@@ -27,13 +27,13 @@ namespace Silphid.Showzup
         {
             if (input == null)
             {
-                Debug.Log("#Views# Returning null view for null content");
+//                Debug.Log("#Views# Returning null view for null content");
                 return Observable.Return<IView>(null);
             }
 
             if (input is IView)
             {
-                Debug.Log("#Views# Returning content itself as view");
+//                Debug.Log("#Views# Returning content itself as view");
                 return Observable.Return((IView) input);
             }
 
@@ -117,19 +117,18 @@ namespace Silphid.Showzup
             return false;
         }
 
-        private GameObject Instantiate(GameObject obj, CancellationToken cancellationToken)
+        private GameObject Instantiate(GameObject original, CancellationToken cancellationToken)
         {
             if (cancellationToken.IsCancellationRequested)
                 return null;
 
 #if UNITY_EDITOR
-            var original = obj;
-            obj = Object.Instantiate(original);
+            original = Object.Instantiate(original);
 #endif
 
-            DisableAllViews(obj);
+            DisableAllViews(original);
 
-            var instance = Object.Instantiate(obj);
+            var instance = Object.Instantiate(original);
 #if UNITY_EDITOR
             Object.Destroy(original);
 #endif

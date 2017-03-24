@@ -9,11 +9,15 @@ namespace Silphid.Showzup
     public class SelectionControl : ListControl, IMoveHandler
     {
         private bool _isSynching;
+        private readonly SerialDisposable _focusDisposable = new SerialDisposable();
 
         public ReactiveProperty<object> SelectedItem { get; } = new ReactiveProperty<object>();
         public ReactiveProperty<IView> SelectedView { get; } = new ReactiveProperty<IView>();
         public ReactiveProperty<int?> SelectedIndex { get; } = new ReactiveProperty<int?>();
+
         public NavigationOrientation Orientation;
+        public bool AutoFocus = true;
+        public float FocusDelay;
 
         public virtual void Start()
         {
@@ -45,13 +49,34 @@ namespace Silphid.Showzup
                 .PairWithPrevious()
                 .Subscribe(x =>
                 {
-                    var previous = x.Item1 as IFocusable;
-                    if (previous != null) previous.IsFocused.Value = false;
-
-                    var current = x.Item2 as IFocusable;
-                    if (current != null) current.IsFocused.Value = true;
+                    RemoveFocus(x.Item1 as IFocusable);
+                    SetFocus(x.Item2 as IFocusable);
                 })
                 .AddTo(this);
+        }
+
+        private void SetFocus(IFocusable focusable)
+        {
+            if (!AutoFocus || focusable == null)
+                return;
+
+            if (FocusDelay.IsAlmostZero())
+            {
+                focusable.IsFocused.Value = true;
+                return;
+            }
+
+            _focusDisposable.Disposable = Observable
+                .Timer(TimeSpan.FromSeconds(FocusDelay))
+                .Subscribe(_ => focusable.IsFocused.Value = true);
+        }
+
+        private void RemoveFocus(IFocusable focusable)
+        {
+            if (!AutoFocus || focusable == null)
+                return;
+
+            focusable.IsFocused.Value = false;
         }
 
         private void SubscribeToSynchOthers<T>(IObservable<T> observable, Action synchAction)
@@ -75,6 +100,20 @@ namespace Silphid.Showzup
 
             SelectedIndex.Value = 0;
             return true;
+        }
+
+        public bool SelectLast()
+        {
+            if (Views.Count == 0)
+                return false;
+
+            SelectedIndex.Value = Views.Count - 1;
+            return true;
+        }
+
+        public void SelectNone()
+        {
+            SelectedItem.Value = null;
         }
 
         public bool SelectPrevious()
