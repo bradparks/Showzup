@@ -1,13 +1,12 @@
-﻿using Silphid.Extensions;
+using System;
 using Silphid.Sequencit;
 using UniRx;
-using Unity.Linq;
 using UnityEngine;
 using Zenject;
 
 namespace Silphid.Showzup
 {
-    public class TransitionControl : Control, IPresenter
+    public class TransitionControl : PresenterControlBase
     {
         #region Fields
 
@@ -15,19 +14,20 @@ namespace Silphid.Showzup
         private GameObject _targetContainer;
         private IView _sourceView;
         private IView _targetView;
-        private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
 
         #endregion
 
         #region Properties
 
-        [Inject] internal IViewLoader ViewLoader { get; set; }
-        [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
-
         public GameObject Container1;
         public GameObject Container2;
         public Transition DefaultTransition;
-        public string[] Variants;
+
+        #endregion
+
+        #region Injected properties
+
+        [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
 
         #endregion
 
@@ -44,45 +44,26 @@ namespace Silphid.Showzup
 
         #endregion
 
-        #region IPresenter members
+        #region Virtual and abstract overrides
 
-        public virtual IObservable<IView> Present(object input, Options options = null)
+        protected override IObservable<Unit> Present(IView view, Options options)
         {
-            return LoadView(input, options)
-                .ContinueWith(view =>
-                {
-                    var transition = ResolveTransition();
-                    var duration = ResolveDuration(transition, options);
-                    return PerformTransition(transition, duration, options)
-                        .ThenReturn(view);
-                });
+            var transition = ResolveTransition();
+            var duration = ResolveDuration(transition, options);
+            return PerformTransition(transition, duration, options);
+        }
+
+        protected override void OnViewReady(IView view)
+        {
+            base.OnViewReady(view);
+
+            _sourceView = View.Value;
+            _targetView = view;
         }
 
         #endregion
 
         #region Implementation
-
-        protected IObservable<IView> LoadView(object input, Options options) =>
-            ViewLoader
-                .Load(input, options.WithExtraVariants(Variants))
-                .Where(view => CheckCancellation(view, options))
-                .Do(OnViewReady);
-
-        private bool CheckCancellation(IView view, Options options)
-        {
-            if (!(options?.CancellationToken.IsCancellationRequested ?? false))
-                return true;
-
-            view.GameObject.Destroy();
-            return false;
-        }
-
-        protected void OnViewReady(IView view)
-        {
-            Debug.Log($"#Transition# View ready: {view}");
-            _sourceView = _view.Value;
-            _targetView = view;
-        }
 
         protected Transition ResolveTransition() => TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
 
@@ -93,29 +74,15 @@ namespace Silphid.Showzup
             PrepareContainers(_targetView, transition, options.GetDirection());
 
             return Sequence.Create(seq =>
-            {
-                HideView(_sourceView, seq);
+                {
+                    transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
+                            duration)
+                        .In(seq);
 
-                transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
-                    duration).In(seq);
-
-                ShowView(_targetView, seq);
-                seq.AddAction(() => CompleteTransition(transition));
-            });
-        }
-
-        private void HideView(IView view, ISequenceable seq)
-        {
-            var showable = view as IShowable;
-            if (showable != null)
-                seq.Add(() => showable.Hide());
-        }
-
-        private void ShowView(IView view, ISequenceable seq)
-        {
-            var showable = view as IShowable;
-            if (showable != null)
-                seq.Add(() => showable.Show());
+                    seq.AddAction(() => CompleteTransition(transition));
+                })
+                .DoOnError(ex => Debug.LogException(
+                    new Exception($"Failed to transition from {_sourceView} to {_targetView}.", ex)));
         }
 
         private void PrepareContainers(IView targetView, Transition transition, Direction direction)
@@ -142,7 +109,7 @@ namespace Silphid.Showzup
         {
             if (_sourceView != null)
                 _sourceView.IsActive = false;
-            _view.Value = _targetView;
+            View.Value = _targetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);
             transition.Complete(_sourceContainer, _targetContainer);

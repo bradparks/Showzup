@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Silphid.Extensions;
-using UniRx;
 
 namespace Silphid.Showzup
 {
@@ -12,7 +11,6 @@ namespace Silphid.Showzup
         public IEnumerable<string> Variants { get; set; } = Enumerable.Empty<string>();
         public Transition Transition { get; set; }
         public float? Duration { get; set; }
-        public CancellationToken CancellationToken { get; set; } = CancellationToken.Empty;
 
         public override string ToString() =>
             $"{nameof(Direction)}: {Direction}, {nameof(PushMode)}: {PushMode}, {nameof(Variants)}: {Variants?.ToDelimitedString(";")}, {nameof(Transition)}: {Transition}, {nameof(Duration)}: {Duration}";

@@ -5,6 +5,6 @@ namespace Silphid.Showzup
 {
     public interface IViewLoader
     {
-        [Pure] IObservable<IView> Load(object input, Options options = null);
+        [Pure] IObservable<IView> Load(object input, CancellationToken cancellationToken, Options options = null);
     }
 }

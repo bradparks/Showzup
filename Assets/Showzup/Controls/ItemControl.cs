@@ -40,7 +40,7 @@ namespace Silphid.Showzup
             Debug.Log($"#Content# Present({input}, {options})");
 
             return ViewLoader
-                .Load(input, options.WithExtraVariants(Variants))
+                .Load(input, CancellationToken.Empty, options.WithExtraVariants(Variants))
                 .Do(view =>
                 {
                     ReplaceView(Container, view);

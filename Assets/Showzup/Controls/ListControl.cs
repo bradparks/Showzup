@@ -85,6 +85,6 @@ namespace Silphid.Showzup
         }
 
         protected virtual IObservable<IView> LoadView(object item, Options options) =>
-            ViewLoader.Load(item, options);
+            ViewLoader.Load(item, CancellationToken.Empty, options);
     }
 }

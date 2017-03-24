@@ -2,8 +2,10 @@
 using Silphid.Extensions;
 using Silphid.Loadzup;
 using UniRx;
+using Unity.Linq;
 using UnityEngine;
 using Zenject;
+using CancellationToken = UniRx.CancellationToken;
 using Object = UnityEngine.Object;
 
 namespace Silphid.Showzup
@@ -21,7 +23,7 @@ namespace Silphid.Showzup
             _injectGameObject = injectGameObject;
         }
 
-        public IObservable<IView> Load(object input, Options options = null)
+        public IObservable<IView> Load(object input, CancellationToken cancellationToken, Options options = null)
         {
             if (input == null)
             {
@@ -42,13 +44,13 @@ namespace Silphid.Showzup
                     return Observable.Throw<IView>(
                         new NotSupportedException($"#Views# Input type does not implement IView: {type}"));
 
-                return LoadByViewType(type, options);
+                return LoadByViewType(type, cancellationToken, options);
             }
 
-            return LoadByViewModel(input, options);
+            return LoadByViewModel(input, cancellationToken, options);
         }
 
-        private IObservable<IView> LoadByViewType(Type viewType, Options options = null)
+        private IObservable<IView> LoadByViewType(Type viewType, CancellationToken cancellationToken, Options options = null)
         {
             //Debug.Log($"#Views# Loading view of type {viewType}");
 
@@ -57,10 +59,10 @@ namespace Silphid.Showzup
             if (mapping == null)
                 throw new InvalidOperationException($"View type {viewType.Name} not mapped");
 
-            return LoadInternal(mapping, null);
+            return LoadInternal(mapping, null, cancellationToken);
         }
 
-        private IObservable<IView> LoadByViewModel(object viewModel, Options options = null)
+        private IObservable<IView> LoadByViewModel(object viewModel, CancellationToken cancellationToken, Options options = null)
         {
             //Debug.Log($"#Views# Loading view for view model of type {viewModel}");
             // Resolve view mapping
@@ -69,13 +71,13 @@ namespace Silphid.Showzup
                 throw new InvalidOperationException(
                     $"ViewModel type {viewModel.GetType().Name} not mapped to any valid view");
 
-            return LoadInternal(mapping, viewModel);
+            return LoadInternal(mapping, viewModel, cancellationToken);
         }
 
-        private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel)
+        private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel, CancellationToken cancellationToken)
         {
 //            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
-            return LoadPrefabView(mapping.ViewType, mapping.Uri)
+            return LoadPrefabView(mapping.ViewType, mapping.Uri, cancellationToken)
                 .Do(view => InjectView(view, viewModel))
                 .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
         }
@@ -92,34 +94,52 @@ namespace Silphid.Showzup
 
         #region Prefab view loading
 
-        private IObservable<IView> LoadPrefabView(Type viewType, Uri uri)
+        private IObservable<IView> LoadPrefabView(Type viewType, Uri uri, CancellationToken cancellationToken)
         {
             //Debug.Log($"#Views# LoadPrefabView({viewType}, {uri})");
 
             return _loader.Load<GameObject>(uri)
                 .Last()
-                .Select(InstantiatePrefabInstanceIfEditor)
-                .Do(DisableAllViews)
-                .Select(Instantiate)
+                .Where(obj => CheckCancellation(cancellationToken))
+                .Select(x => Instantiate(x, cancellationToken))
+                .WhereNotNull()
                 .DoOnError(ex => Debug.LogError(
                     $"Failed to load view {viewType} from {uri} with error:{Environment.NewLine}{ex}"))
                 .Select(x => GetViewFromPrefab(x, viewType));
         }
 
-        private GameObject InstantiatePrefabInstanceIfEditor(GameObject obj)
+        private bool CheckCancellation(CancellationToken cancellationToken, Action cancellationAction = null)
         {
-#if UNITY_EDITOR
-            obj = Object.Instantiate(obj);
-#endif
-            return obj;
+            if (!cancellationToken.IsCancellationRequested)
+                return true;
+
+            cancellationAction?.Invoke();
+            return false;
         }
 
-        private GameObject Instantiate(GameObject prefab)
+        private GameObject Instantiate(GameObject obj, CancellationToken cancellationToken)
         {
-            var instance = Object.Instantiate(prefab);
+            if (cancellationToken.IsCancellationRequested)
+                return null;
+
 #if UNITY_EDITOR
-            Object.Destroy(prefab);
+            var original = obj;
+            obj = Object.Instantiate(original);
 #endif
+
+            DisableAllViews(obj);
+
+            var instance = Object.Instantiate(obj);
+#if UNITY_EDITOR
+            Object.Destroy(original);
+#endif
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                instance.Destroy();
+                return null;
+            }
+
             return instance;
         }
 
