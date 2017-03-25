@@ -1,4 +1,5 @@
 ﻿using Silphid.Extensions;
+using Silphid.Sequencit;
 using UniRx;
 using Zenject;
 
@@ -49,7 +50,6 @@ namespace Silphid.Showzup
         #region Private fields
 
         private readonly Subject<Unit> _loadCancellations = new Subject<Unit>();
-        private readonly SerialDisposable _requestDisposable = new SerialDisposable();
         private State _state;
         private PendingRequest _pendingRequest;
 
@@ -70,7 +70,7 @@ namespace Silphid.Showzup
                 return PresentNow(input, options);
             }
 
-            // if (_state == State.Transitioning)
+            // State.Presenting
             return PresentLater(input, options);
         }
 
@@ -83,14 +83,13 @@ namespace Silphid.Showzup
             _state = State.Loading;
             return Observable
                 .Defer(() => LoadView(input, options))
-                .TakeUntil(_loadCancellations)
                 .ContinueWith(view =>
                 {
                     _state = State.Presenting;
                     return Present(view, options)
-                        .ThenReturn(view)
-                        .DoOnCompleted(CompleteRequest);
-                });
+                        .ThenReturn(view);
+                })
+                .DoOnCompleted(CompleteRequest);
         }
 
         private IObservable<IView> PresentLater(object input, Options options)
@@ -111,17 +110,14 @@ namespace Silphid.Showzup
 
         private void CompleteRequest()
         {
-            _requestDisposable.Disposable = null;
             _state = State.Ready;
 
             if (_pendingRequest != null)
             {
-                var request = _pendingRequest;
-                _pendingRequest = null;
+                PresentNow(_pendingRequest.Input, _pendingRequest.Options)
+                    .SubscribeAndForget(_pendingRequest.Subject);
 
-                _requestDisposable.Disposable =
-                    PresentNow(request.Input, request.Options)
-                        .Subscribe(request.Subject);
+                _pendingRequest = null;
             }
         }
 
