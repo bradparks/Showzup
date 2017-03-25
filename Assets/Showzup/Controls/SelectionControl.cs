@@ -18,6 +18,7 @@ namespace Silphid.Showzup
         public NavigationOrientation Orientation;
         public bool AutoFocus = true;
         public float FocusDelay;
+        public bool WrapAround = false;
 
         public virtual void Start()
         {
@@ -95,19 +96,19 @@ namespace Silphid.Showzup
 
         public bool SelectFirst()
         {
-            if (_views.Count == 0)
+            if (!HasItems)
                 return false;
 
-            SelectedIndex.Value = 0;
+            SelectedIndex.Value = FirstIndex;
             return true;
         }
 
         public bool SelectLast()
         {
-            if (_views.Count == 0)
+            if (!HasItems)
                 return false;
 
-            SelectedIndex.Value = _views.Count - 1;
+            SelectedIndex.Value = LastIndex;
             return true;
         }
 
@@ -118,8 +119,19 @@ namespace Silphid.Showzup
 
         public bool SelectPrevious()
         {
-            if (SelectedIndex.Value == 0)
+            if (!HasItems)
                 return false;
+
+            if (SelectedIndex.Value == FirstIndex)
+            {
+                if (WrapAround)
+                {
+                    SelectedIndex.Value = LastIndex;
+                    return true;
+                }
+
+                return false;
+            }
 
             SelectedIndex.Value--;
             return true;
@@ -127,8 +139,19 @@ namespace Silphid.Showzup
 
         public bool SelectNext()
         {
-            if (SelectedIndex.Value == _views.Count - 1)
+            if (!HasItems)
                 return false;
+
+            if (SelectedIndex.Value == LastIndex)
+            {
+                if (WrapAround)
+                {
+                    SelectedIndex.Value = 0;
+                    return true;
+                }
+
+                return false;
+            }
 
             SelectedIndex.Value++;
             return true;

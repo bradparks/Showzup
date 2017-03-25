@@ -20,6 +20,11 @@ namespace Silphid.Showzup
         public GameObject Container;
         public string[] Variants;
 
+        public int Count => _views.Count;
+        public bool HasItems => _views.Count > 0;
+        public int? LastIndex => HasItems ? _views.Count - 1 : (int?) null;
+        public int? FirstIndex => HasItems ? 0 : (int?) null;
+
         protected readonly List<IView> _views = new List<IView>();
         private readonly ReactiveProperty<ReadOnlyCollection<IView>> _reactiveViews;
 
