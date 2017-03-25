@@ -95,7 +95,7 @@ namespace Silphid.Showzup
 
         public bool SelectFirst()
         {
-            if (Views.Count == 0)
+            if (_views.Count == 0)
                 return false;
 
             SelectedIndex.Value = 0;
@@ -104,10 +104,10 @@ namespace Silphid.Showzup
 
         public bool SelectLast()
         {
-            if (Views.Count == 0)
+            if (_views.Count == 0)
                 return false;
 
-            SelectedIndex.Value = Views.Count - 1;
+            SelectedIndex.Value = _views.Count - 1;
             return true;
         }
 
@@ -127,7 +127,7 @@ namespace Silphid.Showzup
 
         public bool SelectNext()
         {
-            if (SelectedIndex.Value == Views.Count - 1)
+            if (SelectedIndex.Value == _views.Count - 1)
                 return false;
 
             SelectedIndex.Value++;

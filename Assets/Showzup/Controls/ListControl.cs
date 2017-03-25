@@ -9,8 +9,10 @@ using Zenject;
 
 namespace Silphid.Showzup
 {
-    public class ListControl : Control, IPresenter
+    public class ListControl : Control, IListPresenter
     {
+        public ReadOnlyReactiveProperty<ReadOnlyCollection<IView>> Views { get; }
+
         [Inject]
         internal IViewLoader ViewLoader { get; set; }
 
@@ -18,23 +20,24 @@ namespace Silphid.Showzup
         public GameObject Container;
         public string[] Variants;
 
-        private readonly List<IView> _views = new List<IView>();
-
-        public ReadOnlyCollection<IView> Views { get; }
+        protected readonly List<IView> _views = new List<IView>();
+        private readonly ReactiveProperty<ReadOnlyCollection<IView>> _reactiveViews;
 
         public ListControl()
         {
-            Views = _views.AsReadOnly();
+            _reactiveViews = new ReactiveProperty<ReadOnlyCollection<IView>>(_views.AsReadOnly());
+            Views = _reactiveViews.ToReadOnlyReactiveProperty();
         }
 
-        public IView GetViewForViewModel(object viewModel) => Views.FirstOrDefault(x => x.ViewModel == viewModel);
+        public IView GetViewForViewModel(object viewModel) =>
+            _views.FirstOrDefault(x => x.ViewModel == viewModel);
 
         public int? IndexOfView(IView view)
         {
             if (view == null)
                 return null;
 
-            int index = Views.IndexOf(view);
+            int index = _views.IndexOf(view);
             if (index == -1)
                 return null;
 
@@ -42,7 +45,7 @@ namespace Silphid.Showzup
         }
 
         public IView GetViewAtIndex(int? index) =>
-            index.HasValue ? Views[index.Value] : null;
+            index.HasValue ? _views[index.Value] : null;
 
         [Pure]
         public virtual IObservable<IView> Present(object input, Options options = null)
@@ -57,6 +60,7 @@ namespace Silphid.Showzup
         private IObservable<IView> PresentInternal(IEnumerable items, Options options = null)
         {
             _views.Clear();
+            _reactiveViews.Value = _views.AsReadOnly();
 
             RemoveAllViews(Container);
 
@@ -64,6 +68,7 @@ namespace Silphid.Showzup
                 .Do(view =>
                 {
                     _views.Add(view);
+                    _reactiveViews.Value = _views.AsReadOnly();
                     AddView(Container, view);
                 });
         }

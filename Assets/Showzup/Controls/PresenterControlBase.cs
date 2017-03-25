@@ -53,9 +53,15 @@ namespace Silphid.Showzup
         private State _state;
         private PendingRequest _pendingRequest;
 
-        protected readonly ReactiveProperty<IView> View = new ReactiveProperty<IView>();
+        protected readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
+        public ReadOnlyReactiveProperty<IView> View { get; }
 
         #endregion
+
+        protected PresenterControlBase()
+        {
+            View = _view.ToReadOnlyReactiveProperty();
+        }
 
         #region IPresenter members
 

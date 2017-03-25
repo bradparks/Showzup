@@ -15,7 +15,7 @@ namespace Silphid.Showzup
 
             ReplaceView(Container, view);
             view.IsActive = true;
-            View.Value = view;
+            _view.Value = view;
 
             return Observable.ReturnUnit();
         }
