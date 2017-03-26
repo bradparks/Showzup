@@ -94,16 +94,6 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
-
-        public bool SelectIndex(int index)
-        {
-            if (!HasItems)
-                return false;
-
-            SelectedIndex.Value = index;
-            return true;
-        }
-
         public bool SelectFirst()
         {
             if (!HasItems)
