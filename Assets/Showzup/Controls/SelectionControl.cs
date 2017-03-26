@@ -97,7 +97,7 @@ namespace Silphid.Showzup
 
         public bool SelectIndex(int index)
         {
-            if (Views.Count < index)
+            if (!HasItems)
                 return false;
 
             SelectedIndex.Value = index;
