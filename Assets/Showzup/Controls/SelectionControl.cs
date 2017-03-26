@@ -92,6 +92,16 @@ namespace Silphid.Showzup
                 .AddTo(this);
         }
 
+
+        public bool SelectIndex(int index)
+        {
+            if (Views.Count < index)
+                return false;
+
+            SelectedIndex.Value = index;
+            return true;
+        }
+
         public bool SelectFirst()
         {
             if (Views.Count == 0)
