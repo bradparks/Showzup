@@ -89,6 +89,7 @@ namespace Silphid.Showzup
             _state = State.Loading;
             return Observable
                 .Defer(() => LoadView(input, options))
+                .DoOnError(_ => _state = State.Ready)
                 .ContinueWith(view =>
                 {
                     _state = State.Presenting;
