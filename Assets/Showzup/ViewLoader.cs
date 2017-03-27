@@ -79,7 +79,9 @@ namespace Silphid.Showzup
 //            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
             return LoadPrefabView(mapping.ViewType, mapping.Uri, cancellationToken)
                 .Do(view => InjectView(view, viewModel))
-                .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
+                .ContinueWith(view => LoadLoadable(view)
+                    .ThenReturn(view)
+                    .DoOnError(_ => view.GameObject.Destroy()));
         }
 
         private void InjectView(IView view, object viewModel)
