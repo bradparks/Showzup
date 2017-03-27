@@ -1,6 +1,7 @@
 using System;
 using Silphid.Sequencit;
 using UniRx;
+using Unity.Linq;
 using UnityEngine;
 using Zenject;
 
@@ -27,7 +28,8 @@ namespace Silphid.Showzup
 
         #region Injected properties
 
-        [Inject(Optional = true)] internal ITransitionResolver TransitionResolver { get; set; }
+        [Inject(Optional = true)]
+        internal ITransitionResolver TransitionResolver { get; set; }
 
         #endregion
 
@@ -65,31 +67,40 @@ namespace Silphid.Showzup
 
         #region Implementation
 
-        protected Transition ResolveTransition() => TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
+        protected Transition ResolveTransition()
+            => TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
 
-        protected float ResolveDuration(Transition transition, Options options) => options?.Duration ?? transition.Duration;
+        protected float ResolveDuration(Transition transition, Options options)
+            => options?.Duration ?? transition.Duration;
 
         protected IObservable<Unit> PerformTransition(Transition transition, float duration, Options options)
         {
-            PrepareContainers(_targetView, transition, options.GetDirection());
-
             return Sequence.Create(seq =>
+            {
+                seq.AddAction(() => PrepareContainers(_targetView, transition, options.GetDirection()));
+
+                PreHide(_sourceView, options, seq);
+                Deconstruct(_sourceView, options, seq);
+                PreShow(_targetView, options, seq);
+
+                seq.Add(() => transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(), duration));
+                
+                PostHide(_sourceView, options, seq);
+                Construct(_targetView, options, seq);
+                PostShow(_targetView, options, seq);
+
+                seq.AddAction(() => CompleteTransition(transition));
+            })
+                .DoOnError(ex =>
                 {
-                    PreHide(_sourceView, options, seq);
-                    Deconstruct(_sourceView, options, seq);
-                    PreShow(_targetView, options, seq);
+                    // ReSharper disable once MergeSequentialChecks
+                    // ReSharper disable once UseNullPropagation
+                    if (_targetView != null && _targetView.GameObject != null)
+                        _targetView.GameObject.Destroy();
 
-                    transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(),
-                            duration)
-                        .In(seq);
-
-                    PostHide(_sourceView, options, seq);
-                    Construct(_targetView, options, seq);
-                    PostShow(_targetView, options, seq);
-                    seq.AddAction(() => CompleteTransition(transition));
-                })
-                .DoOnError(ex => Debug.LogException(
-                    new Exception($"Failed to transition from {_sourceView} to {_targetView}.", ex)));
+                    Debug.LogException(
+                        new Exception($"Failed to transition from {_sourceView} to {_targetView}.", ex));
+                });
         }
 
         private void PreHide(IView view, Options options, ISequenceable seq)
@@ -136,6 +147,10 @@ namespace Silphid.Showzup
 
         private void PrepareContainers(IView targetView, Transition transition, Direction direction)
         {
+            // Ensure parent has not been destroyed in the meantime
+            if (Container1 == null)
+                throw new TransitionParentDestroyedException();
+
             // Lazily initialize containers
             _sourceContainer = _sourceContainer ?? Container1;
             _targetContainer = _targetContainer ?? Container2;
