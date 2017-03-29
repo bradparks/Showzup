@@ -32,7 +32,7 @@ namespace Silphid.Showzup
         public override IObservable<Unit> Perform(GameObject sourceContainer, GameObject targetContainer,
             Direction direction, float duration)
         {
-            return Parallel.Create(parallel =>
+            return Step.Create(parallel =>
             {
                 base.Perform(sourceContainer, targetContainer, direction, duration)
                     .In(parallel);

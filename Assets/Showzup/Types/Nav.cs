@@ -6,15 +6,15 @@ namespace Silphid.Showzup
     {
         public IView Source { get; }
         public IView Target { get; }
-        public Parallel Parallel { get; }
+        public Step Step { get; }
         public Transition Transition { get; }
         public float Duration { get; }
 
-        public Nav(IView source, IView target, Parallel parallel, Transition transition, float duration)
+        public Nav(IView source, IView target, Step step, Transition transition, float duration)
         {
             Source = source;
             Target = target;
-            Parallel = parallel;
+            Step = step;
             Transition = transition;
             Duration = duration;
         }

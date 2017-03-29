@@ -24,10 +24,10 @@ namespace Silphid.Showzup
         public override IObservable<Unit> Perform(GameObject sourceContainer, GameObject targetContainer,
             Direction direction, float duration)
         {
-            return Parallel.Create(parallel =>
+            return Step.Create(step =>
             {
                 base.Perform(sourceContainer, targetContainer, direction, duration)
-                    .In(parallel);
+                    .In(step);
 
                 if (sourceContainer != null)
                 {
@@ -36,14 +36,14 @@ namespace Silphid.Showzup
                         .DOScale(scale, duration)
                         .SetEase(Ease)
                         .SetAutoKill()
-                        .In(parallel);
+                        .In(step);
                 }
 
                 ((RectTransform) targetContainer.transform)
                     .DOScale(1f, duration)
                     .SetEase(Ease)
                     .SetAutoKill()
-                    .In(parallel);
+                    .In(step);
             });
         }
 

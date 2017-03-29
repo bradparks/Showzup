@@ -87,7 +87,7 @@ namespace Silphid.Showzup
                     return Observable
                         .WhenAll(
                             PerformTransition(transition, duration, options),
-                            nav.Parallel)
+                            nav.Step)
                         .DoOnCompleted(() =>
                         {
                             History.Value = GetNewHistory(view, options.GetPushMode());
@@ -156,7 +156,7 @@ namespace Silphid.Showzup
             return Observable
                 .WhenAll(
                     PerformTransition(transition, duration, options),
-                    nav.Parallel)
+                    nav.Step)
                 .DoOnCompleted(() =>
                 {
                     History.Value = history;
@@ -177,7 +177,7 @@ namespace Silphid.Showzup
 
         private Nav StartNavigation(IView targetView, Transition transition, float duration)
         {
-            var nav = new Nav(View.Value, targetView, new Parallel(), transition, duration);
+            var nav = new Nav(View.Value, targetView, new Step(), transition, duration);
             _navigating.OnNext(nav);
             _view.Value = null;
             return nav;
