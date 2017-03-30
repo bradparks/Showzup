@@ -13,8 +13,6 @@ namespace Silphid.Showzup
 
         private GameObject _sourceContainer;
         private GameObject _targetContainer;
-        private IView _sourceView;
-        private IView _targetView;
 
         #endregion
 
@@ -48,58 +46,62 @@ namespace Silphid.Showzup
 
         #region Virtual and abstract overrides
 
-        protected override IObservable<Unit> Present(IView view, Options options)
+        protected override IObservable<Unit> Present(Presentation presentation)
         {
-            var transition = ResolveTransition();
-            var duration = ResolveDuration(transition, options);
-            return PerformTransition(transition, duration, options);
-        }
-
-        protected override void OnViewReady(IView view)
-        {
-            base.OnViewReady(view);
-
-            _sourceView = View.Value;
-            _targetView = view;
+            return PerformTransition(presentation);
         }
 
         #endregion
 
         #region Implementation
 
-        protected Transition ResolveTransition()
-            => TransitionResolver?.Resolve(_sourceView, _targetView) ?? DefaultTransition;
+        protected override Presentation CreatePresentation(object viewModel, IView sourceView, Type targetViewType, Options options)
+        {
+            var presentation = base.CreatePresentation(viewModel, sourceView, targetViewType, options);
+            presentation.Transition = ResolveTransition(presentation, DefaultTransition);
+            presentation.TransitionDuration = ResolveDuration(presentation.Transition, options);
+            return presentation;
+        }
+
+        protected Transition ResolveTransition(Presentation presentation, Transition defaultTransition) =>
+            TransitionResolver?.Resolve(presentation) ?? defaultTransition;
 
         protected float ResolveDuration(Transition transition, Options options)
-            => options?.Duration ?? transition.Duration;
+            => options?.TransitionDuration ?? transition.Duration;
 
-        protected IObservable<Unit> PerformTransition(Transition transition, float duration, Options options)
+        protected IObservable<Unit> PerformTransition(Presentation presentation)
         {
+            var sourceView = presentation.SourceView;
+            var targetView = presentation.TargetView;
+            var options = presentation.Options;
+            var transition = presentation.Transition;
+            var duration = presentation.TransitionDuration;
+
             return Sequence.Create(seq =>
             {
-                seq.AddAction(() => PrepareContainers(_targetView, transition, options.GetDirection()));
+                seq.AddAction(() => PrepareContainers(presentation));
 
-                PreHide(_sourceView, options, seq);
-                Deconstruct(_sourceView, options, seq);
-                PreShow(_targetView, options, seq);
+                PreHide(sourceView, options, seq);
+                Deconstruct(sourceView, options, seq);
+                PreShow(targetView, options, seq);
 
                 seq.Add(() => transition.Perform(_sourceContainer, _targetContainer, options.GetDirection(), duration));
-                
-                PostHide(_sourceView, options, seq);
-                Construct(_targetView, options, seq);
-                PostShow(_targetView, options, seq);
 
-                seq.AddAction(() => CompleteTransition(transition));
+                PostHide(sourceView, options, seq);
+                Construct(targetView, options, seq);
+                PostShow(targetView, options, seq);
+
+                seq.AddAction(() => CompleteTransition(presentation));
             })
                 .DoOnError(ex =>
                 {
                     // ReSharper disable once MergeSequentialChecks
                     // ReSharper disable once UseNullPropagation
-                    if (_targetView != null && _targetView.GameObject != null)
-                        _targetView.GameObject.Destroy();
+                    if (targetView != null && targetView.GameObject != null)
+                        targetView.GameObject.Destroy();
 
                     Debug.LogException(
-                        new Exception($"Failed to transition from {_sourceView} to {_targetView}.", ex));
+                        new Exception($"Failed to transition from {sourceView} to {targetView}.", ex));
                 });
         }
 
@@ -145,7 +147,7 @@ namespace Silphid.Showzup
                 seq.AddAction(() => postHide.OnPostHide(options));
         }
 
-        private void PrepareContainers(IView targetView, Transition transition, Direction direction)
+        private void PrepareContainers(Presentation presentation)
         {
             // Ensure parent has not been destroyed in the meantime
             if (Container1 == null)
@@ -160,6 +162,10 @@ namespace Silphid.Showzup
             _targetContainer = _sourceContainer;
             _sourceContainer = temp;
 
+            var direction = presentation.Options.GetDirection();
+            var targetView = presentation.TargetView;
+            var transition = presentation.Transition;
+
             transition.Prepare(_sourceContainer, _targetContainer, direction);
             ReplaceView(_targetContainer, targetView);
 
@@ -169,13 +175,18 @@ namespace Silphid.Showzup
                 targetView.IsActive = true;
         }
 
-        protected virtual void CompleteTransition(Transition transition)
+        protected virtual void CompleteTransition(Presentation presentation)
         {
-            if (_sourceView != null)
-                _sourceView.IsActive = false;
-            _view.Value = _targetView;
+            var sourceView = presentation.SourceView;
+            var targetView = presentation.TargetView;
+            var transition = presentation.Transition;
+
+            if (sourceView != null)
+                sourceView.IsActive = false;
+            _view.Value = targetView;
             RemoveAllViews(_sourceContainer);
             _sourceContainer.SetActive(false);
+
             transition.Complete(_sourceContainer, _targetContainer);
         }
 

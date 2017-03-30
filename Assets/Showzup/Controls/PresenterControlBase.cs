@@ -1,4 +1,5 @@
-﻿using Silphid.Extensions;
+﻿using System;
+using Silphid.Extensions;
 using Silphid.Sequencit;
 using UniRx;
 using Zenject;
@@ -37,6 +38,7 @@ namespace Silphid.Showzup
 
         #region Injected properties
 
+        [Inject] internal IViewResolver ViewResolver { get; set; }
         [Inject] internal IViewLoader ViewLoader { get; set; }
 
         #endregion
@@ -67,6 +69,8 @@ namespace Silphid.Showzup
 
         public virtual IObservable<IView> Present(object input, Options options = null)
         {
+            options = Options.CloneWithExtraVariants(options, Variants);
+
             if (_state == State.Ready)
                 return PresentNow(input, options);
 
@@ -86,14 +90,18 @@ namespace Silphid.Showzup
 
         private IObservable<IView> PresentNow(object input, Options options)
         {
+            var viewInfo = ResolveView(input, options);
+            var presentation = CreatePresentation(viewInfo.ViewModel, _view.Value, viewInfo.ViewType, options);
+
             _state = State.Loading;
             return Observable
-                .Defer(() => LoadView(input, options))
+                .Defer(() => LoadView(viewInfo, options))
                 .DoOnError(_ => _state = State.Ready)
                 .ContinueWith(view =>
                 {
                     _state = State.Presenting;
-                    return Present(view, options)
+                    presentation.TargetView = view;
+                    return Present(presentation)
                         .ThenReturn(view);
                 })
                 .DoOnCompleted(CompleteRequest);
@@ -128,27 +136,28 @@ namespace Silphid.Showzup
             }
         }
 
-        protected IObservable<IView> LoadView(object input, Options options)
+        protected IObservable<IView> LoadView(ViewInfo viewInfo, Options options)
         {
             var cancellationDisposable = new BooleanDisposable();
             var cancellationToken = new CancellationToken(cancellationDisposable);
             var cancellations = _loadCancellations.Do(_ => cancellationDisposable.Dispose());
 
             return ViewLoader
-                .Load(input, cancellationToken, options.WithExtraVariants(Variants))
-                .TakeUntil(cancellations)
-                .Do(OnViewReady);
+                .Load(viewInfo, cancellationToken)
+                .TakeUntil(cancellations);
         }
+
+        protected virtual Presentation CreatePresentation(object viewModel, IView sourceView, Type targetViewType, Options options) =>
+            new Presentation(viewModel, sourceView, targetViewType, options);
+
+        protected ViewInfo ResolveView(object input, Options options) =>
+            ViewResolver.Resolve(input, options);
 
         #endregion
 
         #region Virtual and abstract members
 
-        protected abstract IObservable<Unit> Present(IView view, Options options);
-
-        protected virtual void OnViewReady(IView view)
-        {
-        }
+        protected abstract IObservable<Unit> Present(Presentation presentation);
 
         #endregion
     }

@@ -8,13 +8,14 @@ namespace Silphid.Showzup
     {
         public GameObject Container;
 
-        protected override IObservable<Unit> Present(IView view, Options options)
+        protected override IObservable<Unit> Present(Presentation presentation)
         {
             if (Container == null)
                 throw new InvalidOperationException($"Must specify ContentContainer property of ContentControl {gameObject}");
 
-            var sourceView = _view.Value;
-            var targetView = view;
+            var sourceView = presentation.SourceView;
+            var targetView = presentation.TargetView;
+            var options = presentation.Options;
 
             PreHide(sourceView, options);
             PreShow(targetView, options);

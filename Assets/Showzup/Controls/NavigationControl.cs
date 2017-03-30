@@ -14,7 +14,6 @@ namespace Silphid.Showzup
         #region Fields
 
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
-        private readonly ReactiveProperty<IView> _view = new ReactiveProperty<IView>();
         private readonly ReactiveProperty<bool> _isNavigating = new ReactiveProperty<bool>(false);
         private readonly ReactiveProperty<bool> _isLoading = new ReactiveProperty<bool>(false);
         private readonly Subject<Nav> _navigating = new Subject<Nav>();
@@ -58,44 +57,54 @@ namespace Silphid.Showzup
                 .CombineLatest(IsNavigating.Negate(), (x, y) => x && y)
                 .ToReadOnlyReactiveProperty());
 
-        public ReadOnlyReactiveProperty<IView> View => _view.ToReadOnlyReactiveProperty();
-
         public ReactiveProperty<List<IView>> History { get; } =
             new ReactiveProperty<List<IView>>(new List<IView>());
 
         public IObservable<Nav> Navigating => _navigating;
         public IObservable<Nav> Navigated => _navigated;
 
-
         public override IObservable<IView> Present(object input, Options options = null)
+        {
+            return Observable
+                .Defer(() => StartPushAndLoadView(input, options))
+                .ContinueWith(NavigateAndCompletePush);
+        }
+
+        private IObservable<Presentation> StartPushAndLoadView(object input, Options options)
         {
             Debug.Log($"#Nav# Present({input}, {options})");
             AssertCanPresent();
 
+            var viewInfo = ResolveView(input, options);
+            var presentation = CreatePresentation(viewInfo.ViewModel, _view.Value, viewInfo.ViewType, options);
+
             StartChange();
 
             _isLoading.Value = true;
-            return LoadView(input, options)
-                .Do(_ => _isLoading.Value = false)
-                .ContinueWith(view =>
+            return LoadView(viewInfo, options)
+                .Do(view =>
                 {
-                    var transition = ResolveTransition();
-                    var duration = ResolveDuration(transition, options);
+                    _isLoading.Value = false;
+                    presentation.TargetView = view;
+                })
+                .ThenReturn(presentation);
+        }
 
-                    var nav = StartNavigation(view, transition, duration);
+        private IObservable<IView> NavigateAndCompletePush(Presentation presentation)
+        {
+            var nav = StartNavigation(presentation);
 
-                    return Observable
-                        .WhenAll(
-                            PerformTransition(transition, duration, options),
-                            nav.Step)
-                        .DoOnCompleted(() =>
-                        {
-                            History.Value = GetNewHistory(view, options.GetPushMode());
-                            CompleteNavigation(nav);
-                            CompleteChange();
-                        })
-                        .ThenReturn(view);
-                });
+            return Observable
+                .WhenAll(
+                    Present(presentation),
+                    nav.Step)
+                .DoOnCompleted(() =>
+                {
+                    History.Value = GetNewHistory(presentation.TargetView, presentation.Options.GetPushMode());
+                    CompleteNavigation(nav);
+                    CompleteChange();
+                })
+                .ThenReturn(presentation.TargetView);
         }
 
         private List<IView> GetNewHistory(IView view, PushMode pushMode) =>
@@ -146,16 +155,13 @@ namespace Silphid.Showzup
 
             StartChange();
 
-            OnViewReady(view);
-
             var options = new Options { Direction = Direction.Backward };
-            var transition = ResolveTransition();
-            var duration = ResolveDuration(transition, options);
-            var nav = StartNavigation(view, transition, duration);
+            var presentation = CreatePresentation(null, _view.Value, view?.GetType(), options);
+            var nav = StartNavigation(presentation);
 
             return Observable
                 .WhenAll(
-                    PerformTransition(transition, duration, options),
+                    PerformTransition(presentation),
                     nav.Step)
                 .DoOnCompleted(() =>
                 {
@@ -175,9 +181,15 @@ namespace Silphid.Showzup
             _isNavigating.Value = true;
         }
 
-        private Nav StartNavigation(IView targetView, Transition transition, float duration)
+        private Nav StartNavigation(Presentation presentation)
         {
-            var nav = new Nav(View.Value, targetView, new Step(), transition, duration);
+            var nav = new Nav(
+                presentation.SourceView,
+                presentation.TargetView,
+                new Step(),
+                presentation.Transition,
+                presentation.TransitionDuration);
+
             _navigating.OnNext(nav);
             _view.Value = null;
             return nav;

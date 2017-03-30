@@ -2,6 +2,6 @@
 {
     public interface ITransitionResolver
     {
-        Transition Resolve(IView source, IView target);
+        Transition Resolve(Presentation presentation);
     }
 }

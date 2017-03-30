@@ -11,19 +11,29 @@ namespace Silphid.Showzup
 {
     public class ListControl : Control, IListPresenter
     {
-        public ReadOnlyReactiveProperty<ReadOnlyCollection<IView>> Views { get; }
+        #region Injected properties
 
-        [Inject]
-        internal IViewLoader ViewLoader { get; set; }
+        [Inject] internal IViewResolver ViewResolver { get; set; }
+        [Inject] internal IViewLoader ViewLoader { get; set; }
 
-        public bool SizeToContent;
+        #endregion
+
+        #region Config properties
+
         public GameObject Container;
         public string[] Variants;
 
+        #endregion
+
+        #region Public properties
+
+        public ReadOnlyReactiveProperty<ReadOnlyCollection<IView>> Views { get; }
         public int Count => _views.Count;
         public bool HasItems => _views.Count > 0;
         public int? LastIndex => HasItems ? _views.Count - 1 : (int?) null;
         public int? FirstIndex => HasItems ? 0 : (int?) null;
+
+        #endregion
 
         protected readonly List<IView> _views = new List<IView>();
         private readonly ReactiveProperty<ReadOnlyCollection<IView>> _reactiveViews;
@@ -55,6 +65,8 @@ namespace Silphid.Showzup
         [Pure]
         public virtual IObservable<IView> Present(object input, Options options = null)
         {
+            options = Options.CloneWithExtraVariants(options, Variants);
+
             if (!(input is IEnumerable))
                 input = new[] {input};
 
@@ -64,24 +76,26 @@ namespace Silphid.Showzup
         [Pure]
         private IObservable<IView> PresentInternal(IEnumerable items, Options options = null)
         {
-            _views.Clear();
-            _reactiveViews.Value = _views.AsReadOnly();
-
-            RemoveAllViews(Container);
-
-            return LoadViews(items, options)
-                .Do(view =>
-                {
-                    _views.Add(view);
-                    _reactiveViews.Value = _views.AsReadOnly();
-                    AddView(Container, view);
-                });
+            return Observable
+                .Defer(() => CleanUpAndLoadViews(items, options))
+                .Do(AddView);
         }
 
-        [Inject]
-        internal void PostInject()
+        private IObservable<IView> CleanUpAndLoadViews(IEnumerable items, Options options)
         {
+            _views.Clear();
+            _reactiveViews.Value = _views.AsReadOnly();
             RemoveAllViews(Container);
+
+            return LoadViews(items, options);
+        }
+
+        private void AddView(IView view)
+        {
+            _views.Add(view);
+            _reactiveViews.Value = _views.AsReadOnly();
+
+            AddView(Container, view);
         }
 
         private IObservable<IView> LoadViews(IEnumerable items, Options options)
@@ -89,12 +103,17 @@ namespace Silphid.Showzup
             if (items == null)
                 return Observable.Empty<IView>();
 
-            var optionsWithExtraVariants = options.WithExtraVariants(Variants);
-            return items.Cast<object>().ToObservable()
-                .SelectMany(x => LoadView(x, optionsWithExtraVariants));
+            return items
+                .Cast<object>()
+                .Select(input => ResolveView(input, options))
+                .ToObservable()
+                .SelectMany(view => LoadView(view));
         }
 
-        protected virtual IObservable<IView> LoadView(object item, Options options) =>
-            ViewLoader.Load(item, CancellationToken.Empty, options);
+        protected ViewInfo ResolveView(object input, Options options) =>
+            ViewResolver.Resolve(input, options);
+
+        protected virtual IObservable<IView> LoadView(ViewInfo viewInfo) =>
+            ViewLoader.Load(viewInfo, CancellationToken.None);
     }
 }

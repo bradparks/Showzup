@@ -14,74 +14,37 @@ namespace Silphid.Showzup
     {
         [Inject] internal ILoader _loader;
 
-        private readonly IViewResolver _viewResolver;
         private readonly Action<GameObject> _injectGameObject;
 
-        public ViewLoader(IViewResolver viewResolver, Action<GameObject> injectGameObject)
+        public ViewLoader(Action<GameObject> injectGameObject)
         {
-            _viewResolver = viewResolver;
             _injectGameObject = injectGameObject;
         }
 
-        public IObservable<IView> Load(object input, CancellationToken cancellationToken, Options options = null)
+        public IObservable<IView> Load(ViewInfo viewInfo, CancellationToken cancellationToken)
         {
-            if (input == null)
-            {
-//                Debug.Log("#Views# Returning null view for null content");
-                return Observable.Return<IView>(null);
-            }
+            if (viewInfo.View != null)
+                return Load(viewInfo.ViewModel, viewInfo.View, cancellationToken);
 
-            if (input is IView)
-            {
-//                Debug.Log("#Views# Returning content itself as view");
-                return Observable.Return((IView) input);
-            }
+            if (viewInfo.ViewType != null && viewInfo.Uri != null)
+                return Load(viewInfo.ViewModel, viewInfo.ViewType, viewInfo.Uri, cancellationToken);
 
-            if (input is Type)
-            {
-                var type = (Type) input;
-                if (!type.IsAssignableTo<IView>())
-                    return Observable.Throw<IView>(
-                        new NotSupportedException($"#Views# Input type does not implement IView: {type}"));
-
-                return LoadByViewType(type, cancellationToken, options);
-            }
-
-            return LoadByViewModel(input, cancellationToken, options);
+            return Observable.Return<IView>(null);
         }
 
-        private IObservable<IView> LoadByViewType(Type viewType, CancellationToken cancellationToken, Options options = null)
+        private IObservable<IView> Load(object viewModel, IView view, CancellationToken cancellationToken)
         {
-            //Debug.Log($"#Views# Loading view of type {viewType}");
-
-            // Resolve view mapping
-            var mapping = _viewResolver.ResolveFromViewType(viewType, options);
-            if (mapping == null)
-                throw new InvalidOperationException($"View type {viewType.Name} not mapped");
-
-            return LoadInternal(mapping, null, cancellationToken);
+            return Observable.Return(view)
+                .Do(x => InjectView(x, viewModel))
+                .ContinueWith(x => LoadLoadable(x).ThenReturn(view));
         }
 
-        private IObservable<IView> LoadByViewModel(object viewModel, CancellationToken cancellationToken, Options options = null)
+        private IObservable<IView> Load(object viewModel, Type viewType, Uri uri, CancellationToken cancellationToken)
         {
-            //Debug.Log($"#Views# Loading view for view model of type {viewModel}");
-            // Resolve view mapping
-            var mapping = _viewResolver.ResolveFromViewModelType(viewModel.GetType(), options);
-            if (mapping == null)
-                throw new InvalidOperationException(
-                    $"ViewModel type {viewModel.GetType().Name} not mapped to any valid view");
-
-            return LoadInternal(mapping, viewModel, cancellationToken);
-        }
-
-        private IObservable<IView> LoadInternal(ViewMapping mapping, object viewModel, CancellationToken cancellationToken)
-        {
-//            Debug.Log($"#Views# Loading view {mapping.ViewType} for view model {viewModel} using mapping {mapping}");
-            return LoadPrefabView(mapping.ViewType, mapping.Uri, cancellationToken)
+//            Debug.Log($"#Views# Loading view {viewInfo.ViewType} for view model {viewModel} using viewInfo {viewInfo}");
+            return LoadPrefabView(viewType, uri, cancellationToken)
                 .Do(view => InjectView(view, viewModel))
-                .ContinueWith(view => LoadLoadable(view)
-                    .ThenReturn(view)
-                    .DoOnError(_ => view.GameObject.Destroy()));
+                .ContinueWith(view => LoadLoadable(view).ThenReturn(view));
         }
 
         private void InjectView(IView view, object viewModel)
