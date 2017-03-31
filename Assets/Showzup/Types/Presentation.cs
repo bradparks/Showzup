@@ -1,4 +1,5 @@
 ﻿using System;
+using UniRx;
 
 namespace Silphid.Showzup
 {
@@ -13,6 +14,7 @@ namespace Silphid.Showzup
         public Options Options { get; }
         public Transition Transition { get; set; }
         public float TransitionDuration { get; set; }
+        public CancellationToken CancellationToken { get; set; } = CancellationToken.None;
 
         public Presentation(object viewModel, IView sourceView, Type targetViewType, Options options)
         {
@@ -23,6 +25,9 @@ namespace Silphid.Showzup
         }
 
         public override string ToString() =>
-            $"{nameof(SourceViewModel)}: {SourceViewModel}, {nameof(TargetViewModel)}: {TargetViewModel}, {nameof(SourceView)}: {SourceView}, {nameof(TargetView)}: {TargetView}, {nameof(SourceViewType)}: {SourceViewType}, {nameof(TargetViewType)}: {TargetViewType}, {nameof(Options)}: {Options}";
+            $"{nameof(SourceViewModel)}: {SourceViewModel}, {nameof(TargetViewModel)}: {TargetViewModel}, " +
+            $"{nameof(SourceView)}: {SourceView}, {nameof(TargetView)}: {TargetView}, {nameof(SourceViewType)}: {SourceViewType}, " +
+            $"{nameof(TargetViewType)}: {TargetViewType}, {nameof(Options)}: {Options}, {nameof(Transition)}: {Transition}, " +
+            $"{nameof(TransitionDuration)}: {TransitionDuration}";
     }
 }

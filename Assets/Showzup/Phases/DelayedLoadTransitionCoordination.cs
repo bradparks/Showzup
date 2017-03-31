@@ -12,10 +12,10 @@ namespace Silphid.Showzup
         protected override IDisposable CoordinateInternal()
         {
             var present = CreatePerformer(PhaseId.Present);
-            var construct = CreatePerformer(PhaseId.Construct);
-            var deconstruct = CreatePerformer(PhaseId.Deconstruct);
             var show = CreatePerformer(PhaseId.Show);
             var hide = CreatePerformer(PhaseId.Hide);
+            var construct = CreatePerformer(PhaseId.Construct);
+            var deconstruct = CreatePerformer(PhaseId.Deconstruct);
             var load = CreatePerformer(PhaseId.Load);
             var transition = CreatePerformer(PhaseId.Transition);
 
@@ -25,13 +25,15 @@ namespace Silphid.Showzup
                 {
                     present.Start();
                     hide.Start();
-                    deconstruct.Start();
                 });
-                seq.AddWaitUntil(deconstruct.Completed);
+                seq.Add(() => deconstruct.Perform());
+                seq.Add(CancellationPoint);
                 seq.AddAction(() => show.Start());
                 seq.Add(() => load.Perform());
+                seq.Add(CancellationPoint);
                 seq.Add(() => transition.Perform());
                 seq.AddAction(() => hide.Complete());
+                seq.Add(CancellationPoint);
                 seq.Add(() => construct.Perform());
                 seq.AddAction(() =>
                 {

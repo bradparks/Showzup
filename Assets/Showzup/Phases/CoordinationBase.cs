@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Silphid.Extensions;
 using UniRx;
 
 namespace Silphid.Showzup
@@ -6,6 +9,7 @@ namespace Silphid.Showzup
     public abstract class CoordinationBase : ICoordination
     {
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
+        private readonly List<PhasePerformer> _performers = new List<PhasePerformer>();
         private bool _used;
 
         protected readonly Presentation Presentation;
@@ -23,15 +27,16 @@ namespace Silphid.Showzup
 
         protected PhasePerformer CreatePerformer(PhaseId id)
         {
-            var info = new PhasePerformer(new Phase(PhaseId.Present, Presentation), Observer);
-            _disposables.Add(info);
-            return info;
+            var performer = new PhasePerformer(new Phase(PhaseId.Present, Presentation), Observer);
+            _performers.Add(performer);
+            _disposables.Add(performer);
+            return performer;
         }
 
         public IDisposable Coordinate(IObserver<PhaseEvent> observer)
         {
             if (_used)
-                throw new InvalidOperationException("Coordinator can be used only once.");
+                throw new InvalidOperationException("Coordination can be used only once.");
             _used = true;
 
             Observer = observer;
@@ -40,5 +45,20 @@ namespace Silphid.Showzup
         }
 
         protected abstract IDisposable CoordinateInternal();
+
+        protected IObservable<Unit> CancellationPoint()
+        {
+            if (Presentation.CancellationToken.IsCancellationRequested)
+            {
+                _performers
+                    .Where(x => x.State == PhaseState.Started)
+                    .Reverse()
+                    .ForEach(x => x.Cancel());
+
+                return Observable.Throw<Unit>(new PhaseCancelledException());
+            }
+
+            return Observable.Empty<Unit>();
+        }
     }
 }
