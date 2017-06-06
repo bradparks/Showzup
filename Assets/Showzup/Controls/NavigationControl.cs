@@ -4,6 +4,7 @@ using System.Linq;
 using Silphid.Sequencit;
 using Silphid.Extensions;
 using UniRx;
+using Rx = UniRx;
 using UnityEngine;
 using Zenject;
 
@@ -231,7 +232,7 @@ namespace Silphid.Showzup
                 throw new InvalidOperationException($"Cannot pop to view {view} because it is already current view");
         }
 
-        private void DisposeDroppedViews(Tuple<List<IView>, List<IView>> tuple)
+        private void DisposeDroppedViews(Rx.Tuple<List<IView>, List<IView>> tuple)
         {
             tuple.Item1
                 .Where(x => !tuple.Item2.Contains(x))
